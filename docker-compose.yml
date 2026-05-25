@@ -1,0 +1,267 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# SkinX Platform - Local Development Docker Compose
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# This compose file is designed for local development and testing.
+#
+# USAGE:
+#   docker compose up -d
+#   docker compose logs -f [service]
+#   docker compose down
+#
+# PORTS:
+#   Frontend:      http://localhost:3000
+#   Backend:       http://localhost:5001
+#   Model API:     http://localhost:8080
+#   RAG Backend:   http://localhost:8000
+#   Telegram Bot:  http://localhost:5050
+#
+# ═══════════════════════════════════════════════════════════════════════════
+
+version: "3.8"
+
+services:
+  # ───────────────────────────────────────────────────────────────────────────
+  # Frontend - React/Vite SPA
+  # ───────────────────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:5001}
+        VITE_AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN}
+        VITE_AUTH0_CLIENT_ID: ${VITE_AUTH0_CLIENT_ID}
+        VITE_AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE}
+
+    container_name: skinx-frontend-dev
+    restart: unless-stopped
+
+    ports:
+      - "3000:80"
+
+    networks:
+      - skinx-network
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost/",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Backend - Node.js/Express API
+  # ───────────────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    container_name: skinx-backend-dev
+    restart: unless-stopped
+
+    ports:
+      - "5001:5001"
+
+    env_file:
+      # Load from local service env file
+      - ./backend/.env
+
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 5001
+      MODEL_API_URL: http://model-api:8080
+      RAG_API_URL: http://rag-backend:8000
+
+    volumes:
+      # Local uploads directory
+      - ./backend/uploads:/app/uploads
+      # Local logs
+      - ./backend/logs:/app/logs
+
+    depends_on:
+      - model-api
+      - rag-backend
+
+    networks:
+      - skinx-network
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:5001/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Model API - FastAPI ML Inference
+  # ───────────────────────────────────────────────────────────────────────────
+  model-api:
+    build:
+      context: ./model-api
+      dockerfile: Dockerfile
+
+    container_name: skinx-model-api-dev
+    restart: unless-stopped
+
+    ports:
+      - "8080:8080"
+
+    env_file:
+      # Load from local service env file
+      - ./model-api/.env
+
+    environment:
+      PORT: 8080
+      MODEL_DIR: /models
+      DEBUG: "true"
+
+    volumes:
+      # Local model weights - READ-ONLY
+      - ./_local_only_models:/models:ro
+      # Local logs
+      - ./model-api/logs:/app/logs
+
+    networks:
+      - skinx-network
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # RAG Backend - FastAPI RAG Service
+  # ───────────────────────────────────────────────────────────────────────────
+  rag-backend:
+    build:
+      context: ./rag-backend
+      dockerfile: Dockerfile
+
+    container_name: skinx-rag-backend-dev
+    restart: unless-stopped
+
+    ports:
+      - "8000:8000"
+
+    env_file:
+      # Load from local service env file
+      - ./rag-backend/.env
+
+    environment:
+      PORT: 8000
+
+    volumes:
+      # Local RAG data
+      - ./rag-backend/data:/app/data
+      # Local logs
+      - ./rag-backend/logs:/app/logs
+
+    networks:
+      - skinx-network
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Telegram Bot
+  # ───────────────────────────────────────────────────────────────────────────
+  telegram-bot:
+    build:
+      context: ./telegram-bot
+      dockerfile: Dockerfile
+
+    container_name: skinx-telegram-bot-dev
+    restart: unless-stopped
+
+    ports:
+      - "5050:5050"
+
+    env_file:
+      # Load from local service env file
+      - ./telegram-bot/.env
+
+    environment:
+      PORT: 5050
+      MODEL_API_URL: http://model-api:8080
+      BACKEND_API_URL: http://backend:5001
+
+    volumes:
+      # Local logs
+      - ./telegram-bot/logs:/app/logs
+
+    depends_on:
+      - backend
+      - model-api
+
+    networks:
+      - skinx-network
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:5050/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Networks
+# ═══════════════════════════════════════════════════════════════════════════
+networks:
+  skinx-network:
+    driver: bridge
+    name: skinx-network-dev
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Development Notes
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# REQUIREMENTS:
+# 1. Place model weights in _local_only_models/ directory
+# 2. Ensure each service has a .env file (or copy from .env.example)
+# 3. Create local directories for logs and uploads as needed
+#
+# REBUILD:
+#   docker compose build
+#   docker compose up -d
+#
+# LOGS:
+#   docker compose logs -f
+#   docker compose logs -f backend
+#
+# CLEAN UP:
+#   docker compose down
+#   docker compose down -v  # Also remove volumes
+#
+# ═══════════════════════════════════════════════════════════════════════════

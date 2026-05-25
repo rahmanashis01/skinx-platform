@@ -1,0 +1,65 @@
+# Model files - NEVER include in Docker image
+models/
+_local_only_models/
+*.pt
+*.pth
+*.safetensors
+*.ckpt
+*.onnx
+*.bin
+*.h5
+*.pkl
+*.pickle
+*.model
+*.weights
+
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb

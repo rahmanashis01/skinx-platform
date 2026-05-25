@@ -1,0 +1,307 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# SkinX Platform - Production Docker Compose
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# This compose file is designed for production deployment.
+#
+# REQUIREMENTS:
+# - Production host paths under /var/www/skinx/
+# - Secrets in /var/www/skinx/secrets/*.env
+# - Docker Hub images (or local builds with build contexts uncommented)
+#
+# USAGE:
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# ENVIRONMENT VARIABLES:
+#   DOCKERHUB_USERNAME - Required Docker Hub username
+#   IMAGE_TAG          - Required image tag version
+#
+# ═══════════════════════════════════════════════════════════════════════════
+
+services:
+  # ───────────────────────────────────────────────────────────────────────────
+  # Frontend - React/Vite SPA served by Nginx
+  # ───────────────────────────────────────────────────────────────────────────
+  frontend:
+    image: ${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}/skinx-frontend:${IMAGE_TAG:?IMAGE_TAG is required}
+
+    # Uncomment for local builds instead of pulling from Docker Hub
+    # build:
+    #   context: ./frontend
+    #   dockerfile: Dockerfile
+    #   args:
+    #     VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://skin-x.app}
+    #     VITE_AUTH0_DOMAIN: ${VITE_AUTH0_DOMAIN}
+    #     VITE_AUTH0_CLIENT_ID: ${VITE_AUTH0_CLIENT_ID}
+    #     VITE_AUTH0_AUDIENCE: ${VITE_AUTH0_AUDIENCE}
+
+    container_name: skinx-frontend
+    restart: unless-stopped
+
+    ports:
+      # Bind to localhost only - production Nginx will reverse proxy
+      - "127.0.0.1:3000:80"
+
+    # Frontend receives build-time env vars only (no runtime secrets)
+    # Environment variables are baked into the JS bundle during image build
+
+    networks:
+      - skinx-network
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost/",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Backend - Node.js/Express API Server
+  # ───────────────────────────────────────────────────────────────────────────
+  backend:
+    image: ${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}/skinx-backend:${IMAGE_TAG:?IMAGE_TAG is required}
+
+    # Uncomment for local builds
+    # build:
+    #   context: ./backend
+    #   dockerfile: Dockerfile
+
+    container_name: skinx-backend
+    restart: unless-stopped
+
+    ports:
+      # Bind to localhost only
+      - "127.0.0.1:5001:5001"
+
+    env_file:
+      # Production secrets (Auth0, SendGrid, DB credentials, etc.)
+      - /var/www/skinx/secrets/backend.env
+
+    environment:
+      # Override/supplement env_file with required production settings
+      NODE_ENV: production
+      PORT: 5001
+      MODEL_API_URL: http://model-api:8080
+      RAG_API_URL: http://rag-backend:8000
+      UPLOAD_DIR: /app/uploads
+
+    volumes:
+      # Persistent storage for uploaded images
+      - /var/www/skinx/data/uploads:/app/uploads
+      # Application logs
+      - /var/www/skinx/logs/backend:/app/logs
+
+    depends_on:
+      - model-api
+      - rag-backend
+
+    networks:
+      - skinx-network
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:5001/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Model API - FastAPI ML Inference Service
+  # ───────────────────────────────────────────────────────────────────────────
+  model-api:
+    image: ${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}/skinx-model-api:${IMAGE_TAG:?IMAGE_TAG is required}
+
+    # Uncomment for local builds
+    # build:
+    #   context: ./model-api
+    #   dockerfile: Dockerfile
+
+    container_name: skinx-model-api
+    restart: unless-stopped
+
+    ports:
+      # Bind to localhost only
+      - "127.0.0.1:8080:8080"
+
+    env_file:
+      # Production secrets (API keys, model configs, etc.)
+      - /var/www/skinx/secrets/model-api.env
+
+    environment:
+      # Override/supplement env_file
+      PORT: 8080
+      MODEL_DIR: /models
+      DEBUG: "false"
+
+    volumes:
+      # Model weights - READ-ONLY mount (models NOT in Docker image)
+      - /var/www/skinx/data/models:/models:ro
+      # Application logs
+      - /var/www/skinx/logs/model-api:/app/logs
+
+    networks:
+      - skinx-network
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s # Extended for model loading
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # RAG Backend - FastAPI RAG/AI Assistant Service
+  # ───────────────────────────────────────────────────────────────────────────
+  rag-backend:
+    image: ${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}/skinx-rag-backend:${IMAGE_TAG:?IMAGE_TAG is required}
+
+    # Uncomment for local builds
+    # build:
+    #   context: ./rag-backend
+    #   dockerfile: Dockerfile
+
+    container_name: skinx-rag-backend
+    restart: unless-stopped
+
+    ports:
+      # Bind to localhost only
+      - "127.0.0.1:8000:8000"
+
+    env_file:
+      # Production secrets (OpenRouter API key, etc.)
+      - /var/www/skinx/secrets/rag-backend.env
+
+    environment:
+      # Override/supplement env_file
+      RAG_PORT: 8000
+      CHUNKS_PATH: /app/data/chunks/skinx_chunks.json
+      SYSTEM_PROMPT_PATH: /app/data/system_prompt.md
+      CHROMA_PERSIST_DIR: /app/data/chroma_db
+
+    volumes:
+      # Persistent data for vector database
+      - /var/www/skinx/data/rag:/app/data
+      # Application logs
+      - /var/www/skinx/logs/rag-backend:/app/logs
+
+    networks:
+      - skinx-network
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Telegram Bot - Telegram Integration Service
+  # ───────────────────────────────────────────────────────────────────────────
+  telegram-bot:
+    image: ${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}/skinx-telegram-bot:${IMAGE_TAG:?IMAGE_TAG is required}
+
+    # Uncomment for local builds
+    # build:
+    #   context: ./telegram-bot
+    #   dockerfile: Dockerfile
+
+    container_name: skinx-telegram-bot
+    restart: unless-stopped
+
+    ports:
+      # Bind to localhost only (webhook endpoint)
+      - "127.0.0.1:5050:5050"
+
+    env_file:
+      # Production secrets (Telegram bot token, etc.)
+      - /var/www/skinx/secrets/telegram-bot.env
+
+    environment:
+      # Override/supplement env_file
+      BOT_PORT: 5050
+      MODEL_API_URL: http://model-api:8080
+      BACKEND_API_URL: http://backend:5001
+
+    volumes:
+      # Application logs
+      - /var/www/skinx/logs/telegram-bot:/app/logs
+
+    depends_on:
+      - backend
+      - model-api
+
+    networks:
+      - skinx-network
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:5050/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Networks
+# ═══════════════════════════════════════════════════════════════════════════
+networks:
+  skinx-network:
+    driver: bridge
+    name: skinx-network
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Production Notes
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# HOST REQUIREMENTS:
+# 1. Create required directories:
+#    mkdir -p /var/www/skinx/{data/{models,uploads,rag},secrets,logs/{backend,model-api,rag-backend,telegram-bot}}
+#
+# 2. Place model weights in:
+#    /var/www/skinx/data/models/
+#
+# 3. Create secret files:
+#    /var/www/skinx/secrets/backend.env
+#    /var/www/skinx/secrets/model-api.env
+#    /var/www/skinx/secrets/rag-backend.env
+#    /var/www/skinx/secrets/telegram-bot.env
+#
+# 4. Set proper permissions:
+#    chown -R 1000:1000 /var/www/skinx/data
+#    chown -R 1000:1000 /var/www/skinx/logs
+#    chmod 600 /var/www/skinx/secrets/*.env
+#
+# DEPLOYMENT:
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# LOGS:
+#   docker compose -f docker-compose.prod.yml logs -f [service]
+#
+# STOP:
+#   docker compose -f docker-compose.prod.yml down
+#
+# ═══════════════════════════════════════════════════════════════════════════

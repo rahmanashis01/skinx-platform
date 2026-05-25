@@ -1,0 +1,29 @@
+# SkinX Model API - Production Dependencies
+# Clean dependencies for Linux/Docker deployment
+
+# Web Framework
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+python-multipart==0.0.9
+
+# Deep Learning - Core
+torch==2.3.1
+torchvision==0.18.1
+
+# Computer Vision
+pillow==10.3.0
+opencv-python-headless==4.10.0.84
+numpy==1.26.4
+
+# Segmentation Model
+segment-anything==1.0
+
+# Data Processing
+pandas==2.2.2
+
+# HTTP Client for OpenRouter
+requests==2.31.0
+
+# Configuration & Utils
+pydantic==2.5.0
+python-dotenv==1.0.0

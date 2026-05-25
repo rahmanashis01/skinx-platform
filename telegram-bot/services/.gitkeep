@@ -1,0 +1,4 @@
+# Services — Phase 2+
+#
+# skinxService.js   → wraps POST /api/ask
+# photoService.js   → wraps POST /api/analyze-photo/public

@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+/* ── Reset body/html to prevent white gaps ────────────────────────────── */
+html,
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+}
+
+#root {
+    min-height: 100%;
+}
+
+/* ── Global desktop scale ──────────────────────────────────────────────────
+   At 100% browser zoom the design renders at ~75% visual size on laptops
+   and wider screens, providing better density on 16:9 displays. Mobile
+   and tablet viewports remain at 100%.
+────────────────────────────────────────────────────────────────────────── */
+@media (min-width: 1024px) {
+    html {
+        zoom: 0.75;
+    }
+}
+
+/* ── Photo Cycling Animation for ABCDE Checks ─────────────────────────── */
+@keyframes fadeIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Pulse animation for active photo indicator */
+@keyframes pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Ping animation for active photo marker */
+@keyframes ping {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    75%,
+    100% {
+        transform: scale(2);
+        opacity: 0;
+    }
+}

@@ -1,0 +1,17 @@
+# SkinX RAG Backend — Python dependencies
+# Phase 1
+python-docx
+
+# Phase 3 — Embeddings + ChromaDB
+chromadb
+sentence-transformers
+torch
+transformers
+python-dotenv
+
+# Phase 4 — OpenRouter LLM
+requests
+
+# Phase 4.2 — API layer
+fastapi
+uvicorn

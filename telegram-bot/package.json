@@ -1,0 +1,25 @@
+{
+  "name": "skinx-telegram-bot",
+  "version": "1.0.0",
+  "description": "SkinX Telegram Bot — AI-assisted skin health assistant",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "dev": "nodemon bot.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "form-data": "^4.0.0",
+    "node-telegram-bot-api": "^0.66.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "SkinX",
+  "license": "MIT"
+}

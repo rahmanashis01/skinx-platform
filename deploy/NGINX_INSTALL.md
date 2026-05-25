@@ -168,7 +168,7 @@ Make sure Docker containers are running before proceeding:
 
 ```bash
 # Navigate to your deployment directory
-cd /var/www/skinx/skinx_platform
+cd /var/www/skinx/app
 
 # Set environment variables
 export DOCKERHUB_USERNAME

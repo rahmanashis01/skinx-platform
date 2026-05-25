@@ -1,14 +1,84 @@
 name: deploy-prod
 
 on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 env:
   IMAGE_TAG: ${{ github.sha }}
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify required files exist
+        run: |
+          echo "Checking required Dockerfiles..."
+          test -f frontend/Dockerfile || { echo "Missing frontend/Dockerfile" >&2; exit 1; }
+          test -f backend/Dockerfile || { echo "Missing backend/Dockerfile" >&2; exit 1; }
+          test -f model-api/Dockerfile || { echo "Missing model-api/Dockerfile" >&2; exit 1; }
+          test -f rag-backend/Dockerfile || { echo "Missing rag-backend/Dockerfile" >&2; exit 1; }
+          test -f telegram-bot/Dockerfile || { echo "Missing telegram-bot/Dockerfile" >&2; exit 1; }
+
+          echo "Checking required deployment files..."
+          test -f docker-compose.prod.yml || { echo "Missing docker-compose.prod.yml" >&2; exit 1; }
+          test -f nginx/skinx.conf || { echo "Missing nginx/skinx.conf" >&2; exit 1; }
+          test -f deploy/deploy-prod.sh || { echo "Missing deploy/deploy-prod.sh" >&2; exit 1; }
+          test -f deploy/healthcheck.sh || { echo "Missing deploy/healthcheck.sh" >&2; exit 1; }
+
+          echo "✓ All required files present"
+
+      - name: Forbidden file scan
+        run: |
+          echo "Scanning for forbidden files..."
+
+          FORBIDDEN_FOUND=0
+
+          if find . -name ".env" -o -name ".env.local" | grep -v node_modules | grep .; then
+            echo "ERROR: Found .env or .env.local files" >&2
+            FORBIDDEN_FOUND=1
+          fi
+
+          if find . -name "*.pt" -o -name "*.pth" -o -name "*.safetensors" | grep -v "_local_only_models" | grep -v "_archive_review" | grep .; then
+            echo "ERROR: Found model weight files" >&2
+            FORBIDDEN_FOUND=1
+          fi
+
+          if find . -path "*/node_modules" -prune -o -path "*/dist" -prune -o -path "*/build" -prune | grep -E "(node_modules|dist|build)$" | grep -v "^./"; then
+            echo "WARNING: Found build artifacts in source"
+          fi
+
+          if test -d "_local_only_models" && git ls-files _local_only_models | grep .; then
+            echo "ERROR: _local_only_models directory is tracked in git" >&2
+            FORBIDDEN_FOUND=1
+          fi
+
+          if test -d "_archive_review" && git ls-files _archive_review | grep .; then
+            echo "ERROR: _archive_review directory is tracked in git" >&2
+            FORBIDDEN_FOUND=1
+          fi
+
+          if [ $FORBIDDEN_FOUND -eq 1 ]; then
+            echo "Forbidden files found - failing validation" >&2
+            exit 1
+          fi
+
+          echo "✓ No forbidden files found"
+
   build-and-push:
     runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
     steps:
@@ -67,6 +137,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build-and-push
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
     steps:
@@ -80,18 +151,28 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p "${{ secrets.VPS_PORT }}" "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Upload deployment files
+      - name: Upload deployment files via rsync
         run: |
           rsync -az --delete \
             --exclude ".git" \
             --exclude "node_modules" \
             --exclude ".venv" \
             --exclude "venv" \
+            --exclude "_local_only_models" \
+            --exclude "_archive_review" \
+            --exclude "dist" \
+            --exclude "build" \
+            --exclude ".env" \
+            --exclude ".env.local" \
             -e "ssh -p ${{ secrets.VPS_PORT }}" \
             ./ \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/www/skinx/skinx_platform/"
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/www/skinx/app/"
 
       - name: Run production deploy script
         run: |
           ssh -p "${{ secrets.VPS_PORT }}" "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-            "cd /var/www/skinx/skinx_platform && DOCKERHUB_USERNAME='${{ secrets.DOCKERHUB_USERNAME }}' IMAGE_TAG='${{ env.IMAGE_TAG }}' bash deploy/deploy-prod.sh"
+            "cd /var/www/skinx/app && \
+             DOCKERHUB_USERNAME='${{ secrets.DOCKERHUB_USERNAME }}' \
+             IMAGE_TAG='${{ github.sha }}' \
+             PROD_DOMAIN='${{ vars.PROD_DOMAIN }}' \
+             bash deploy/deploy-prod.sh"

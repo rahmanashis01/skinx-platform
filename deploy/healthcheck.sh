@@ -1,45 +1,64 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ============================================================================
+# SkinX Deployment Health Check Script
+# ============================================================================
+# Checks internal services and optionally public endpoints.
+# Internal checks retry up to 30 times with 2-second delays.
+# Public checks warn only (DNS/SSL may not be ready on first deploy).
+# ============================================================================
+
+MAX_RETRIES=30
+RETRY_DELAY=2
+
+# ----------------------------------------------------------------------------
+# Helper: Retry health check
+# ----------------------------------------------------------------------------
+check_service() {
+  local service_name="$1"
+  local url="$2"
+  local attempt=1
+
+  echo "Checking ${service_name}..."
+
+  while [ $attempt -le $MAX_RETRIES ]; do
+    if curl -fsS "${url}" >/dev/null 2>&1; then
+      echo "✓ ${service_name} OK"
+      return 0
+    fi
+
+    if [ $attempt -lt $MAX_RETRIES ]; then
+      echo "  Attempt ${attempt}/${MAX_RETRIES} failed, retrying in ${RETRY_DELAY}s..."
+      sleep $RETRY_DELAY
+      attempt=$((attempt + 1))
+    else
+      echo "ERROR: ${service_name} health check failed after ${MAX_RETRIES} attempts" >&2
+      return 1
+    fi
+  done
+}
+
+# ============================================================================
+# Internal Health Checks (Required - Fail Hard)
+# ============================================================================
+
 echo "=== Internal Health Checks ==="
+echo ""
 
-echo "Checking frontend..."
-if ! curl -fsS http://127.0.0.1:3000/ >/dev/null 2>&1; then
-  echo "ERROR: Frontend health check failed" >&2
-  exit 1
-fi
-echo "✓ Frontend OK"
+check_service "Frontend" "http://127.0.0.1:3000/" || exit 1
+check_service "Backend" "http://127.0.0.1:5001/health" || exit 1
+check_service "Model API" "http://127.0.0.1:8080/health" || exit 1
+check_service "RAG Backend" "http://127.0.0.1:8000/health" || exit 1
+check_service "Telegram Bot" "http://127.0.0.1:5050/health" || exit 1
 
-echo "Checking backend..."
-if ! curl -fsS http://127.0.0.1:5001/health >/dev/null 2>&1; then
-  echo "ERROR: Backend health check failed" >&2
-  exit 1
-fi
-echo "✓ Backend OK"
-
-echo "Checking model-api..."
-if ! curl -fsS http://127.0.0.1:8080/health >/dev/null 2>&1; then
-  echo "ERROR: Model API health check failed" >&2
-  exit 1
-fi
-echo "✓ Model API OK"
-
-echo "Checking rag-backend..."
-if ! curl -fsS http://127.0.0.1:8000/health >/dev/null 2>&1; then
-  echo "ERROR: RAG Backend health check failed" >&2
-  exit 1
-fi
-echo "✓ RAG Backend OK"
-
-echo "Checking telegram-bot..."
-if ! curl -fsS http://127.0.0.1:5050/health >/dev/null 2>&1; then
-  echo "ERROR: Telegram Bot health check failed" >&2
-  exit 1
-fi
-echo "✓ Telegram Bot OK"
+# ============================================================================
+# Public Health Checks (Optional - Warn Only)
+# ============================================================================
 
 echo ""
 echo "=== Public Health Checks ==="
+echo ""
 
 if [[ -n "${PROD_DOMAIN:-}" ]]; then
   PUBLIC_URL="https://${PROD_DOMAIN}"
@@ -65,4 +84,4 @@ else
 fi
 
 echo ""
-echo "Health checks completed"
+echo "✓ Health checks completed successfully"

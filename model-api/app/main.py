@@ -42,6 +42,40 @@ model_loader: ModelLoader = None
 inference_engine: InferenceEngine = None
 
 
+# ============================================================================
+# Helper: Safe Config Value Formatting
+# ============================================================================
+
+
+def safe_config_value(key: str, val):
+    """
+    Safely format config values, masking secrets and handling all types.
+
+    Args:
+        key: Config key name
+        val: Config value (can be bool, int, None, str)
+
+    Returns:
+        str: Safe formatted value
+    """
+    secret_words = ["key", "token", "secret", "password", "api_key"]
+
+    if val is None:
+        return "None"
+
+    if isinstance(val, bool):
+        return str(val)
+
+    text = str(val)
+
+    if any(word in key.lower() for word in secret_words):
+        if not text:
+            return ""
+        return "***" + text[-4:] if len(text) >= 4 else "***"
+
+    return text
+
+
 @app.on_event("startup")
 async def startup_event():
     """Load models at startup."""
@@ -54,11 +88,7 @@ async def startup_event():
     # Check configuration
     print("\nConfiguration:")
     for key, val in Config.summary().items():
-        # Don't print full API key
-        if "api_key" in key.lower() and val:
-            print(f"  {key}: ***{val[-4:] if len(val) >= 4 else '***'}")
-        else:
-            print(f"  {key}: {val}")
+        print(f"  {key}: {safe_config_value(key, val)}")
 
     # Validate paths
     missing = Config.validate_required_paths()

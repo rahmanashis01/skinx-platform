@@ -1,0 +1,200 @@
+[
+  {
+    "id": "skinx_general_melanoma_001",
+    "content": "General Melanoma\nMelanoma is the most aggressive and dangerous form of skin cancer because of its ability to spread rapidly to other organs if left untreated. Visually, it often appears as a new, unusual dark brown or black spot on the skin. It can also develop within an existing mole. The physical symptoms typically follow the ABCD rule: Asymmetry (uneven shape), Border irregularity (ragged edges), Color variegation (multiple mixed shades of black, brown, or blue), and a Diameter larger than 6 millimeters.\nWhy does this disease happen?\nMelanoma occurs when the DNA in melanocytes (the skin cells that produce pigment) becomes damaged, causing them to multiply rapidly and form malignant tumors. This cellular damage is most commonly triggered by intense, blistering bursts of ultraviolet (UV) radiation from the sun, though genetic factors and family history also play a significant role.\nHow to prevent this?\nPrevention relies heavily on protecting the skin from UV damage. This includes applying broad-spectrum sunscreen daily, even during the monsoon season or on cloudy days, as UV rays penetrate cloud cover. It is also crucial to perform regular self-examinations to monitor existing moles for any rapid visual changes in size, shape, or color.\nWhat not to do for this disease?\nDo not ignore a mole that is visibly growing, itching, or bleeding. Do not assume that South Asian skin tones are naturally immune to melanoma due to higher melanin levels. Do not attempt to burn, freeze, or apply unregulated cosmetic lightening creams to an irregular mole, as this delays critical medical diagnosis.",
+    "metadata": {
+      "source": "SkinXRag.docx",
+      "category": "Skin Cancers",
+      "section": "General Melanoma",
+      "chunk_index": 1,
+      "content_type": "knowledge"
+    }
+  },
+  {
+    "id": "skinx_basal_cell_carcinoma_bcc_002",
+    "content": "Basal Cell Carcinoma (BCC)\nWhat is this disease?\nBasal Cell Carcinoma (BCC) is the most common and generally the slowest-growing type of skin cancer. Physically, it often looks like a shiny, pearl-like bump on the skin, or a slightly scaly pink patch. A classic visual symptom of BCC is a sore or pimple-like lesion that bleeds, forms a crust or scab, appears to heal, and then repeatedly bleeds again. It rarely spreads to other organs but can cause severe local tissue damage if ignored.\nWhy does this disease happen?\nBCC is caused by long-term, cumulative exposure to ultraviolet (UV) radiation. Unlike melanoma, which is often linked to short, intense sunburns, BCC develops over years of continuous sun exposure. Because of this, it almost exclusively appears on highly exposed areas of the body, such as the face, ears, neck, and scalp.\nHow to prevent this?\nPrevention requires strict, daily environmental protection. This includes wearing wide-brimmed hats and protective clothing, avoiding direct sunlight during peak UV hours (10:00 AM to 3:00 PM), and applying sunscreen to the face and neck whenever working outdoors.\nWhat not to do for this disease?\nDo not assume that an unhealing, bleeding bump is just a stubborn pimple or a bug bite. Do not repeatedly pick at or peel the crust off a recurring sore. Never delay seeking a physical clinical examination for a lesion on the face that has not fully healed within 30 days.",
+    "metadata": {
+      "source": "SkinXRag.docx",
+      "category": "Skin Cancers",
+      "section": "Basal Cell Carcinoma (BCC)",
+      "chunk_index": 2,
+      "content_type": "knowledge"
+    }
+  },
+  {
+    "id": "skinx_squamous_cell_carcinoma_scc_003",
+    "content": "Squamous Cell Carcinoma (SCC)\nSquamous Cell Carcinoma (SCC) is the second most common skin cancer. Visually, it often presents as a firm, raised red nodule, a flat patch with a rough, scaly crust, or a thickened, wart-like growth. SCC can grow deep into the skin and, if left untreated, has the potential to spread to lymph nodes.\nWhy does this disease happen?\nWhile SCC on the face and neck is primarily caused by cumulative UV sun damage, in regions like Bangladesh, SCC frequently develops on the palms of the hands and soles of the feet due to environmental toxicity. Long-term consumption of arsenic-contaminated tube-well water causes \"Arsenicosis,\" leading to hardened skin lesions that frequently mutate into SCC.\nHow to prevent this?\nIn addition to standard UV protection (sunscreen and shade), preventing SCC requires strict environmental safety. Users must ensure their daily drinking water is sourced from tested, arsenic-free wells. Early identification and clinical treatment of benign, thickened arsenic-induced skin patches can prevent them from turning cancerous.\nWhat not to do for this disease?\nDo not continue to drink from untested tube-wells if hardened, wart-like patches begin appearing on the hands or feet. Do not attempt to physically cut, file, or scrape away thickened scaly patches, as this can cause severe infection and will not stop the cellular growth.",
+    "metadata": {
+      "source": "SkinXRag.docx",
+      "category": "Skin Cancers",
+      "section": "Squamous Cell Carcinoma (SCC)",
+      "chunk_index": 3,
+      "content_type": "knowledge"
+    }
+  },
+  {
+    "id": "skinx_acral_lentiginous_melanoma_alm_004",
+    "content": "Acral Lentiginous Melanoma (ALM)\nAcral Lentiginous Melanoma (ALM) is a highly specific, rare subtype of melanoma, but it is the most common form of melanoma found in darker South Asian skin tones. Physically, it appears in hairless areas of the body. Symptoms include a dark, spreading patch on the soles of the feet or palms of the hands, or a distinct, dark vertical stripe underneath a fingernail or toenail.\nWhy does this disease happen?\nUnlike standard Melanoma, BCC, or SCC, Acral Lentiginous Melanoma is not caused by sun exposure or UV radiation. The exact cause is unknown, but it is linked to genetic mutations in the tissue of the extremities. Because it occurs on the soles of the feet and under nails, it is frequently overlooked until it has grown significantly.\nHow to prevent this?\nBecause ALM is not caused by the sun, UV protection and sunscreen will not prevent it. The only effective strategy is proactive, routine physical self-examinations. Users must regularly check the hidden areas of their body, specifically inspecting the soles of the feet, the spaces between toes, the palms, and beneath the nailbeds.\nWhat not to do for this disease?\nDo not dismiss a dark streak under a fingernail or toenail as a simple bruise or blood blister, especially if there was no physical trauma to the finger. Do not assume a dark patch on the sole of the foot is a harmless fungal infection or a stain, and do not try to treat an expanding dark nail streak with over-the-counter anti-fungal drops. Immediate dermatological review is required.",
+    "metadata": {
+      "source": "SkinXRag.docx",
+      "category": "Skin Cancers",
+      "section": "Acral Lentiginous Melanoma (ALM)",
+      "chunk_index": 4,
+      "content_type": "knowledge"
+    }
+  },
+  {
+    "id": "skinx_tinea_corporis_ringworm_daud_005",
+    "content": "Tinea Corporis (Ringworm / Daud)\nTinea Corporis, commonly known as Ringworm or Daud, is a highly contagious fungal infection of the skin surface. Visually, it appears as a red or darkened, itchy, ring-shaped patch. The borders of the ring are typically raised, scaly, and active, while the center of the patch often remains clear or looks like normal skin.\nWhy does this disease happen?\nThis infection is caused by fungi that thrive in extremely hot and humid environments, making it highly prevalent during the Bangladeshi summer and monsoon seasons. It spreads rapidly through direct skin-to-skin contact with an infected person or by touching contaminated personal items, such as shared unwashed towels, clothing, or bedsheets.\nHow to prevent this?\nPrevention focuses on keeping the skin clean, cool, and dry. Users should bathe daily, dry off completely (especially in skin folds), and wear loose, breathable cotton clothing that allows sweat to evaporate. Personal items like towels and clothes should never be shared and must be washed frequently.\nWhat not to do for this disease?\nDo not apply over-the-counter steroid ointments or fairness creams to the itchy rings. Steroids feed the fungus, causing it to rapidly expand and become highly resistant to treatment (a condition called Tinea Incognito). Do not scratch the rings, as this spreads the fungal spores to other parts of the body and can cause painful secondary bacterial infections.",
+    "metadata": {
+      "source": "SkinXRag.docx",
+      "category": "Fungal Infections",
+      "section": "Tinea Corporis (Ringworm / Daud)",
+      "chunk_index": 5,
+      "content_type": "knowledge"
+    }
+  },
+  {
+    "id": "skinx_tinea_pedis_athlete_s_foot_006",
+    "content": "Tinea Pedis (Athlete’s Foot)\nTinea Pedis is a specific fungal infection that attacks the feet. The most common physical symptoms include white, soggy, peeling, or cracked skin between the toes, accompanied by intense itching, stinging, and a foul odor. The skin on the soles or sides of the feet may also become dry and scaly.\nWhy does this disease happen?\nThe fungus requires constant moisture to grow. In Bangladesh, this condition frequently affects farmers, laborers, and everyday commuters who walk through stagnant monsoon floodwaters, muddy fields, or wear wet socks and closed shoes for many hours at a time without letting their feet dry.\nHow to prevent this?\nPrevention requires immediate foot hygiene after environmental exposure. Anyone exposed to muddy water or monsoon floods must wash their feet with clean water and soap immediately upon returning indoors. Feet must be dried completely, especially the spaces between the toes. Wearing open-toed sandals instead of closed shoes during the rainy season allows the skin to breathe.\nWhat not to do for this disease?\nDo not ignore deep cracks or peeling skin between the toes, as bacteria from dirty water can enter these cracks and cause severe, deep-tissue foot infections. Do not wear the same damp shoes or unwashed socks two days in a row.",
+    "metadata": {
+      "source": "SkinXRag.docx",
+      "category": "Fungal Infections",
+      "section": "Tinea Pedis (Athlete’s Foot)",
+      "chunk_index": 6,
+      "content_type": "knowledge"
+    }
+  },
+  {
+    "id": "skinx_pityriasis_versicolor_chhoda_007",
+    "content": "Pityriasis Versicolor (Chhoda)\nPityriasis Versicolor, locally known as Chhoda, is a common fungal-yeast condition. Visually, it presents as multiple small, slightly scaly, discolored patches on the skin. These patches can appear either lighter or darker than the surrounding skin and are most frequently found on the chest, back, neck, and shoulders. They may occasionally cause mild itching.\nWhy does this disease happen?\nUnlike contagious ringworm, this condition is caused by a type of yeast that naturally lives on everyone’s skin. The disease happens when this yeast overgrows rapidly. In Bangladesh, this sudden overgrowth is triggered by heavy, trapped sweating, high ambient heat, and extreme humidity.\nHow to prevent this?\nPrevention involves strict sweat management. Users should shower as soon as possible after heavy physical labor or heavy sweating. Wearing loose, sweat-absorbing cotton clothing helps prevent the yeast from trapping moisture against the body. Using medicated anti-fungal soaps during the peak humid months can also prevent yeast overgrowth.\nWhat not to do for this disease? Do not confuse these light-colored, scaly patches with Vitiligo (Shweti); Pityriasis Versicolor is a temporary, easily treatable surface fungus, not an autoimmune loss of pigment. Do not apply heavy layers of thick oils (such as mustard or coconut oil) to the chest or back during hot weather, as heavy oils feed the yeast and worsen the outbreak.",
+    "metadata": {
+      "source": "SkinXRag.docx",
+      "category": "Fungal Infections",
+      "section": "Pityriasis Versicolor (Chhoda)",
+      "chunk_index": 7,
+      "content_type": "knowledge"
+    }
+  },
+  {
+    "id": "skinx_scabies_khujli_pachra_008",
+    "content": "Scabies (Khujli / Pachra)\nScabies is a highly contagious parasitic infestation of the skin. The primary physical symptom is a severe, relentless itch that becomes noticeably worse at night. Visually, it appears as clusters of tiny, raised, pimple-like bumps or thin burrow lines, most commonly found between the fingers, around the wrists, in the armpits, and around the waistline.\nWhy does this disease happen? Scabies is caused by microscopic mites that burrow into the top layer of the human skin to lay eggs. It spreads incredibly fast in densely populated areas, shared dormitories, or crowded households through prolonged physical contact or by sharing infested beds, blankets, and clothing.\nHow to prevent this? Prevention requires strict environmental hygiene. Bed linens, blankets, and clothing must be washed frequently in hot water and dried under direct, strong sunlight, which kills the mites. Users must avoid sharing sleeping spaces or unwashed clothing with anyone currently experiencing severe nighttime itching.\nWhat not to do for this disease? Do not attempt to treat only the single person showing symptoms. Because Scabies is highly contagious and can take weeks to show symptoms, the entire household and all close contacts must apply the medical treatment at the exact same time; otherwise, the mites will continuously pass back and forth between family members. Do not assume the nighttime itching is just dry skin or mosquito bites.",
+    "metadata": {
+      "source": "SkinXRag.docx",
+      "category": "Fungal Infections",
+      "section": "Scabies (Khujli / Pachra)",
+      "chunk_index": 8,
+      "content_type": "knowledge"
+    }
+  },
+  {
+    "id": "skinx_atopic_dermatitis_eczema_009",
+    "content": "Atopic Dermatitis (Eczema)\nAtopic Dermatitis, commonly known as Eczema, is a chronic inflammatory skin condition. Visually, it appears as extremely dry, thickened, and intensely itchy patches of skin. On South Asian skin tones, these patches may appear dark brown, purple, or slightly red. The patches frequently develop in the creases of the body, such as the inner elbows, behind the knees, or on the neck and face.\nWhy does this disease happen?\nEczema occurs when the skin's natural protective barrier becomes compromised, making it highly sensitive to environmental irritants. In Bangladesh, severe flare-ups are frequently triggered by heavy urban dust and air pollution, sudden shifts from air-conditioned rooms to extreme outdoor heat, harsh laundry soaps, and wearing synthetic, non-breathable fabrics.\nHow to prevent this?\nPrevention requires constant repair of the skin barrier. The most critical step is daily moisturization using unscented, thick lotions or creams immediately after bathing. Users should wash their bodies and clothes using mild, fragrance-free soaps and wear loose cotton clothing to minimize physical friction and trapped sweat.\nWhat not to do for this disease?\nDo not assume that sweaty or oily skin in the summer does not need moisturizer; eczema-prone skin always lacks a healthy barrier and requires hydration. Do not scrub the itchy patches with harsh loofahs or shower stones, as physical abrasion worsens the inflammation. Do not bathe in very hot water, as it strips the skin of its natural protective oils.",
+    "metadata": {
+      "source": "SkinXRag.docx",
+      "category": "Inflammatory and Autoimmune Conditions",
+      "section": "Atopic Dermatitis (Eczema)",
+      "chunk_index": 9,
+      "content_type": "knowledge"
+    }
+  },
+  {
+    "id": "skinx_vitiligo_shweti_010",
+    "content": "Vitiligo (Shweti)\nVitiligo, locally known as Shweti, is an autoimmune condition that affects skin pigmentation. Visually, it presents as completely smooth, flat, milk-white patches on the skin. These patches are completely painless and do not itch. They frequently appear symmetrically on both sides of the body and are common on the hands, feet, face, and lips.\nWhy does this disease happen?\nVitiligo happens when the body’s own immune system mistakenly attacks and destroys melanocytes, the cells responsible for producing skin pigment. It is a strictly internal autoimmune response. It is not caused by poor hygiene, specific diets, drinking milk with fish, or any external environmental factors.\nHow to prevent this?\nBecause Vitiligo is an autoimmune genetic condition, it cannot be prevented. However, because the white patches completely lack melanin, they have zero natural protection against ultraviolet (UV) radiation. Management requires applying strong, broad-spectrum sunscreen directly to the white patches to prevent severe sunburns.\nWhat not to do for this disease?\nDo not spread the harmful myth that Vitiligo is contagious; it cannot be spread through touch, shared food, or close contact. Do not confuse Vitiligo with infectious diseases like leprosy or fungal infections. Do not apply unregulated, caustic herbal pastes to the patches in an attempt to forcefully restore color, as this can cause permanent scarring and severe chemical burns.",
+    "metadata": {
+      "source": "SkinXRag.docx",
+      "category": "Inflammatory and Autoimmune Conditions",
+      "section": "Vitiligo (Shweti)",
+      "chunk_index": 10,
+      "content_type": "knowledge"
+    }
+  },
+  {
+    "id": "skinx_impetigo_011",
+    "content": "Impetigo\nImpetigo is a highly contagious, superficial bacterial infection of the skin. Visually, it typically begins as small red sores or blisters that quickly rupture. After rupturing, the sores ooze fluid for a few days before forming a very distinct, thick, \"honey-colored\" or golden crust. It is most commonly seen in infants and children, frequently appearing around the nose and mouth.\nWhy does this disease happen?\nImpetigo is caused by common bacteria (Staphylococcus or Streptococcus) entering the body through broken skin. The bacteria easily invade through minor cuts, scraped mosquito bites, or raw eczema patches. The infection thrives and spreads rapidly during the hot, humid Bangladeshi summers, especially in crowded environments like schools or large households.\nHow to prevent this?\nPrevention relies on prompt wound care and good hand hygiene. All minor cuts, scrapes, and insect bites should be immediately washed with soap and clean water and kept covered. Children's fingernails should be kept trimmed short to prevent them from breaking the skin when scratching mosquito bites.\nWhat not to do for this disease?\nDo not pick, peel, or scratch the honey-colored crusts, as this traps the bacteria under the fingernails and spreads the infection to other parts of the body. Do not share towels, washcloths, or pillows with an infected individual. Do not send an infected child to school or daycare until the sores have completely healed or a doctor has cleared them, as the fluid is highly contagious.",
+    "metadata": {
+      "source": "SkinXRag.docx",
+      "category": "Inflammatory and Autoimmune Conditions",
+      "section": "Impetigo",
+      "chunk_index": 11,
+      "content_type": "knowledge"
+    }
+  },
+  {
+    "id": "skinx_melasma_mechta_012",
+    "content": "Melasma (Mechta)\nMelasma, commonly known locally as Mechta, is a very common skin pigmentation condition. Visually, it appears as flat, dark brown, or grayish patches on the skin. These patches frequently develop symmetrically on the face, most commonly appearing on the cheeks, the bridge of the nose, the forehead, and the upper lip.\nWhy does this disease happen?\nMelasma is caused by an overproduction of melanin (color pigment) in specific areas of the face. In Bangladesh, this overproduction is primarily triggered by heavy, unprotected exposure to strong ultraviolet (UV) sunlight. Hormonal changes, particularly during pregnancy or from taking oral birth control pills, also play a massive role in triggering these dark patches, making it highly common among women.\nHow to prevent this?\nThe absolute most effective prevention is strict, daily sun protection. Users must apply a broad-spectrum sunscreen every day, even when indoors or during the cloudy monsoon season, as ambient daylight and extreme environmental heat can still trigger pigment production. Wearing wide-brimmed hats or using umbrellas while walking outdoors is highly recommended.\nWhat not to do for this disease?\nDo not attempt to quickly erase the dark patches using harsh, unregulated skin-bleaching creams or strong chemical peels purchased from local markets. These harsh chemicals deeply irritate the skin, which frequently causes the body to produce even more melanin, making the dark patches permanent and much darker than before.",
+    "metadata": {
+      "source": "SkinXRag.docx",
+      "category": "Pigmentation and Cosmetic-Induced Conditions",
+      "section": "Melasma (Mechta)",
+      "chunk_index": 12,
+      "content_type": "knowledge"
+    }
+  },
+  {
+    "id": "skinx_topical_steroid_damaged_face_tsdf_013",
+    "content": "Topical Steroid Damaged Face (TSDF)\nTopical Steroid Damaged Face (TSDF) is a severe, man-made skin condition. Visually, the skin appears unnaturally thin, fragile, and persistently red or flushed. Severe physical symptoms include the appearance of visible, broken blood vessels right beneath the skin's surface, widespread \"rebound\" acne that does not respond to normal treatments, and extreme sensitivity to sunlight and basic soaps.\nWhy does this disease happen?\nThis severe damage is caused by the widespread cultural abuse of unregulated fairness creams mixed with potent medical steroids, or the misuse of over-the-counter steroid ointments (like Clobetasol or Betamethasone) purchased directly from pharmacies. When these strong medical ointments are used daily as skin-lightening creams or applied to simple rashes without a doctor's supervision, they permanently destroy the skin's natural barrier.\nHow to prevent this?\nPrevention requires completely avoiding the use of medicinal steroid ointments for cosmetic purposes. Steroid creams are powerful medicines, not daily moisturizers or fairness treatments. They should only be applied to the skin if explicitly prescribed by a certified dermatologist, and only for the exact, short number of days recommended.\nWhat not to do for this disease?\nNever buy a medical ointment from a pharmacy to use as a daily fairness cream. Do not apply strong steroid creams to fungal infections (like Ringworm), as the steroid will feed the fungus and cause it to spread uncontrollably. If a user has been applying a strong fairness cream for many months, do not stop using it abruptly without consulting a doctor, as the skin will experience a painful, burning withdrawal rash.",
+    "metadata": {
+      "source": "SkinXRag.docx",
+      "category": "Pigmentation and Cosmetic-Induced Conditions",
+      "section": "Topical Steroid Damaged Face (TSDF)",
+      "chunk_index": 13,
+      "content_type": "knowledge"
+    }
+  },
+  {
+    "id": "skinx_mpox_formerly_monkeypox_014",
+    "content": "Mpox (Formerly Monkeypox)\nMpox is a highly contagious viral infection. Visually, it causes a very distinct rash that goes through several physical stages. It typically begins as flat red spots that develop into raised bumps, which then turn into painful, fluid-filled or pus-filled blisters. Finally, these blisters dry out, crust over, and form hard scabs. This rash most commonly appears on the face, palms of the hands, soles of the feet, or genital areas. It is frequently accompanied by a fever and physical swelling of the lymph nodes in the neck or armpits.\nWhy does this disease happen?\nMpox is caused by a virus that is transmitted through close, prolonged physical contact. It spreads rapidly through direct skin-to-skin contact with the infectious rash, blisters, or scabs of an infected person. It can also be transmitted by touching contaminated personal items, such as unwashed clothing, towels, or bedsheets that have rubbed against the infected skin.\nHow to prevent this?\nPrevention requires strict physical isolation and environmental hygiene. Anyone showing visual signs of the Mpox rash must avoid all close physical contact with others until all the blisters have crusted over, the scabs have naturally fallen off, and a completely new layer of healthy skin has formed beneath them. Users must frequently wash their hands with soap and disinfect shared household surfaces to stop the virus from spreading.\nWhat not to do for this disease?\nDo not scratch, pop, or squeeze the fluid-filled blisters. Breaking the blisters releases the highly contagious virus, spreads the rash to other parts of the body, and creates a high risk for severe, permanent scarring and deep bacterial infections. Do not share bedding, towels, or clothing with anyone exhibiting a sudden fever and blister-like rash. Do not delay seeking a clinical evaluation from a healthcare professional if these specific visual markers appear.",
+    "metadata": {
+      "source": "SkinXRag.docx",
+      "category": "Viral Infections",
+      "section": "Mpox (Formerly Monkeypox)",
+      "chunk_index": 14,
+      "content_type": "knowledge"
+    }
+  },
+  {
+    "id": "skinx_tracking_visual_changes_over_time_015",
+    "content": "Tracking Visual Changes Over Time\nSkinX evaluates the progression of skin spots, moles, and rashes by comparing the visual metrics of a current scan against the historical data of a user's previous scans. This side-by-side comparison tracks specific physical changes in size, shape, color, and surface texture to determine if a localized skin condition is improving, remaining stable, or visibly worsening over a period of time.",
+    "metadata": {
+      "source": "SkinXRag.docx",
+      "category": "Longitudinal Tracking and Comparative Evaluation",
+      "section": "Tracking Visual Changes Over Time",
+      "chunk_index": 15,
+      "content_type": "knowledge"
+    }
+  },
+  {
+    "id": "skinx_identifying_stable_or_improving_conditions_016",
+    "content": "Identifying Stable or Improving Conditions\nWhen comparative data shows that a previously flagged skin patch or mark is reducing in size, fading in color intensity, losing its scaly texture, or regaining a smooth surface, SkinX classifies the area as improving. If the physical metrics remain completely identical over several months with no new irregular markers appearing, the area is classified as stable. In these scenarios, SkinX will clearly explain these positive visual changes to the user to provide reassurance and encourage continued routine monitoring.",
+    "metadata": {
+      "source": "SkinXRag.docx",
+      "category": "Longitudinal Tracking and Comparative Evaluation",
+      "section": "Identifying Stable or Improving Conditions",
+      "chunk_index": 16,
+      "content_type": "knowledge"
+    }
+  },
+  {
+    "id": "skinx_identifying_worsening_or_evolving_conditions_017",
+    "content": "Identifying Worsening or Evolving Conditions\nA skin condition is classified as worsening if the comparative data reveals active, negative physical changes. SkinX flags an area as worsening if a spot rapidly increases in diameter, develops new uneven borders, transitions to a darker or more varied color, or if a previously flat patch becomes highly raised, crusty, or fluid-filled. Rapid visual evolution between scans is a primary physical marker for active inflammation, spreading infections, or high-risk cellular growth.",
+    "metadata": {
+      "source": "SkinXRag.docx",
+      "category": "Longitudinal Tracking and Comparative Evaluation",
+      "section": "Identifying Worsening or Evolving Conditions",
+      "chunk_index": 17,
+      "content_type": "knowledge"
+    }
+  },
+  {
+    "id": "skinx_mandatory_advisory_for_worsening_conditions_018",
+    "content": "Mandatory Advisory for Worsening Conditions\nWhen comparative data detects that a skin mark or condition is visibly worsening or actively evolving, SkinX must be direct and transparent. The system must clearly list the specific negative visual changes found between the two scans (for example, \"the visual analysis shows the spot has grown wider and the edges have become uneven since the last scan\"). Immediately following this explanation, SkinX must output a mandatory safety directive: \"Because this area is actively changing, we strongly recommend scheduling a physical examination with a certified dermatologist for a professional evaluation.\"",
+    "metadata": {
+      "source": "SkinXRag.docx",
+      "category": "Longitudinal Tracking and Comparative Evaluation",
+      "section": "Mandatory Advisory for Worsening Conditions",
+      "chunk_index": 18,
+      "content_type": "knowledge"
+    }
+  }
+]

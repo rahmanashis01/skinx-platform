@@ -1,0 +1,34 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+
+# ── Virtual environments ─────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+
+# ── Environment variables (contains API keys) ────────────────────────────────
+.env
+
+# ── ChromaDB persistent storage (re-generate with scripts/ingest_chroma.py) ──
+data/chroma_db/
+
+# ── Embedding model cache ────────────────────────────────────────────────────
+*.bin
+*.safetensors
+
+# ── IDE / OS ──────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Test - SkinX</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .status {
+            background: rgba(76, 175, 80, 0.3);
+            border: 2px solid #4CAF50;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .info-box {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .info-box h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #ffd700;
+        }
+        .info-item {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 14px;
+        }
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        .info-label {
+            font-weight: bold;
+            display: inline-block;
+            width: 140px;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid #fff;
+            border-radius: 10px;
+            color: #fff;
+            text-decoration: none;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn:hover, .btn:active {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.02);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: #667eea;
+        }
+        .test-results {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            font-size: 13px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #ff5252; }
+        .warning { color: #ffc107; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 Network Test Page</h1>
+
+        <div class="status">
+            ✅ Server is Accessible!
+        </div>
+
+        <div class="info-box">
+            <h3>📱 Device Information</h3>
+            <div class="info-item">
+                <span class="info-label">Screen Size:</span>
+                <span id="screenSize">Loading...</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Viewport:</span>
+                <span id="viewport">Loading...</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">User Agent:</span>
+                <span id="userAgent" style="font-size: 11px;">Loading...</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Device Type:</span>
+                <span id="deviceType">Loading...</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Touch Support:</span>
+                <span id="touchSupport">Loading...</span>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>🔗 Connection Information</h3>
+            <div class="info-item">
+                <span class="info-label">Current URL:</span>
+                <span id="currentUrl" style="font-size: 11px;">Loading...</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Protocol:</span>
+                <span id="protocol">Loading...</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Host:</span>
+                <span id="host">Loading...</span>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>🧪 Quick Tests</h3>
+            <a href="/" class="btn">Test: Home Page (/)</a>
+            <a href="/scan" class="btn btn-primary">Test: Scan Page (/scan)</a>
+            <a href="/login" class="btn">Test: Login Page</a>
+            <a href="/dashboard" class="btn">Test: Dashboard</a>
+        </div>
+
+        <div class="info-box">
+            <h3>🔍 API Test</h3>
+            <button onclick="testBackend()" class="btn btn-primary">Test Backend Connection</button>
+            <div id="apiResults" class="test-results" style="display: none;">
+                <div id="apiLog"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Update device information
+        function updateDeviceInfo() {
+            document.getElementById('screenSize').textContent =
+                `${window.screen.width} × ${window.screen.height}`;
+
+            document.getElementById('viewport').textContent =
+                `${window.innerWidth} × ${window.innerHeight}`;
+
+            document.getElementById('userAgent').textContent = navigator.userAgent;
+
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const isTablet = /iPad|Android.*Tablet/i.test(navigator.userAgent);
+            let deviceType = 'Desktop';
+            if (isTablet) deviceType = 'Tablet';
+            else if (isMobile) deviceType = 'Mobile';
+            document.getElementById('deviceType').textContent = deviceType;
+
+            document.getElementById('touchSupport').textContent =
+                ('ontouchstart' in window) ? '✅ Yes' : '❌ No';
+
+            document.getElementById('currentUrl').textContent = window.location.href;
+            document.getElementById('protocol').textContent = window.location.protocol;
+            document.getElementById('host').textContent = window.location.host;
+        }
+
+        // Test backend connection
+        async function testBackend() {
+            const resultsDiv = document.getElementById('apiResults');
+            const logDiv = document.getElementById('apiLog');
+            resultsDiv.style.display = 'block';
+            logDiv.innerHTML = '<div class="warning">⏳ Testing backend connection...</div>';
+
+            try {
+                // Test 1: Health check
+                logDiv.innerHTML += '<div class="warning">Testing: /api/health</div>';
+                const response = await fetch('/api/health');
+                const data = await response.json();
+
+                if (response.ok) {
+                    logDiv.innerHTML += `<div class="success">✅ Backend is responding!</div>`;
+                    logDiv.innerHTML += `<div class="success">Response: ${JSON.stringify(data)}</div>`;
+                } else {
+                    logDiv.innerHTML += `<div class="error">❌ Backend returned error: ${response.status}</div>`;
+                }
+            } catch (error) {
+                logDiv.innerHTML += `<div class="error">❌ Backend connection failed: ${error.message}</div>`;
+                logDiv.innerHTML += `<div class="warning">💡 Make sure backend is running on port 5001</div>`;
+            }
+        }
+
+        // Update info on load and resize
+        updateDeviceInfo();
+        window.addEventListener('resize', updateDeviceInfo);
+
+        // Log that JavaScript is working
+        console.log('✅ JavaScript is working!');
+        console.log('Device:', {
+            width: window.innerWidth,
+            height: window.innerHeight,
+            isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        });
+    </script>
+</body>
+</html>

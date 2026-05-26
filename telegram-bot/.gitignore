@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Environment — never commit real tokens
+.env
+
+# Temporary uploads
+tmp/*
+!tmp/.gitkeep
+
+# Log files
+logs/*
+!logs/.gitkeep
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/

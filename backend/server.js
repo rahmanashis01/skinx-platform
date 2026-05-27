@@ -480,7 +480,9 @@ app.post("/api/change-password", async (req, res) => {
 });
 
 // Scan endpoints, analysis routes, password reset routes
+// Mount password reset routes at both /api and /api/auth for frontend compatibility
 app.use("/api", passwordResetRoutes);
+app.use("/api/auth", passwordResetRoutes);
 app.use("/api/analyze-photo", analyzeRoutes);
 
 const handleAskProxy = async (req, res) => {
@@ -550,12 +552,8 @@ app.listen(PORT, async () => {
   console.log("\n" + "=".repeat(50));
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📧 Email service: ${process.env.EMAIL_SERVICE || "gmail"}`);
-  console.log(
-    `🤖 Model service: ${MODEL_API_URL}`,
-  );
-  console.log(
-    `💬 RAG backend: ${RAG_API_URL}`,
-  );
+  console.log(`🤖 Model service: ${MODEL_API_URL}`);
+  console.log(`💬 RAG backend: ${RAG_API_URL}`);
 
   // Initialize inference service
   try {

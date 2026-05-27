@@ -17,10 +17,15 @@ const {
 // ─── Validate required environment variables ─────────────────────────────────
 const {
   TELEGRAM_BOT_TOKEN,
-  BOT_MODE = "polling",
   BOT_PORT = 5050,
   WEBHOOK_URL,
+  PUBLIC_WEBHOOK_URL,
+  WEBHOOK_SECRET,
 } = process.env;
+
+// Determine webhook URL from available env vars
+const webhookUrl = WEBHOOK_URL || PUBLIC_WEBHOOK_URL;
+const BOT_MODE = webhookUrl ? "webhook" : "polling";
 
 if (!TELEGRAM_BOT_TOKEN) {
   logger.error(
@@ -270,15 +275,15 @@ if (BOT_MODE === "webhook") {
 
   // Health check endpoint
   app.get("/health", (_req, res) => {
-    res.json({ status: "ok", service: "skinx-telegram-bot" });
+    res.json({ status: "ok", service: "skinx-telegram-bot", mode: "webhook" });
   });
 
   // Telegram delivers updates to this route
   app.post("/telegram/webhook", (req, res) => {
-    const webhookSecret = process.env.WEBHOOK_SECRET;
-    if (webhookSecret) {
+    // Verify webhook secret if configured
+    if (WEBHOOK_SECRET) {
       const token = req.headers["x-telegram-bot-api-secret-token"];
-      if (token !== webhookSecret) {
+      if (token !== WEBHOOK_SECRET) {
         logger.warn(
           "[webhook] Forbidden: x-telegram-bot-api-secret-token mismatch",
         );
@@ -290,15 +295,20 @@ if (BOT_MODE === "webhook") {
   });
 
   const port = parseInt(BOT_PORT, 10);
-  app.listen(port, () => {
+  app.listen(port, async () => {
     logger.info(`SkinX Telegram Bot started in [webhook] mode on port ${port}`);
-    const webhookUrl = process.env.WEBHOOK_URL;
-    if (webhookUrl) {
-      logger.info(`Webhook URL: ${webhookUrl}`);
-    } else {
-      logger.warn(
-        "WEBHOOK_URL is not set. Remember to register it with Telegram manually.",
-      );
+    logger.info(`Webhook URL: ${webhookUrl}`);
+
+    // Set webhook with Telegram
+    try {
+      const webhookOptions = {};
+      if (WEBHOOK_SECRET) {
+        webhookOptions.secret_token = WEBHOOK_SECRET;
+      }
+      await bot.setWebHook(webhookUrl, webhookOptions);
+      logger.info(`✓ Webhook registered with Telegram successfully`);
+    } catch (err) {
+      logger.error(`✗ Failed to set webhook: ${err.message}`);
     }
   });
 } else {
@@ -328,8 +338,16 @@ if (BOT_MODE === "webhook") {
 // ─── Graceful shutdown ─────────────────────────────────────────────────────────
 async function shutdown(signal) {
   logger.info(`${signal} received. Shutting down SkinX bot…`);
-  if (BOT_MODE === "polling") {
-    await bot.stopPolling();
+  try {
+    if (BOT_MODE === "polling") {
+      await bot.stopPolling();
+    } else {
+      // Clean up webhook on shutdown
+      await bot.deleteWebHook();
+      logger.info("Webhook deleted");
+    }
+  } catch (err) {
+    logger.error(`Shutdown error: ${err.message}`);
   }
   process.exit(0);
 }

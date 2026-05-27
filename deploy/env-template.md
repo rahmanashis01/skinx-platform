@@ -4,27 +4,34 @@ Create these files on the VPS under `/var/www/skinx/secrets/`.
 
 ## `/var/www/skinx/secrets/backend.env`
 
+Required for production:
+
 ```dotenv
-PORT=
-NODE_ENV=
-EMAIL_SERVICE=
-SENDGRID_API_KEY=
-EMAIL_FROM=
-EMAIL_FROM_NAME=
-OTP_EXPIRY_MINUTES=
-MAX_OTP_ATTEMPTS=
-RESEND_COOLDOWN_SECONDS=
-FRONTEND_URL=
+PORT=5001
+NODE_ENV=production
+
+# Email Service (SendGrid via SMTP)
+EMAIL_SERVICE=sendgrid
+SENDGRID_API_KEY=SG.xxxx_your_sendgrid_api_key_here
+EMAIL_FROM=noreply@skin-x.app
+EMAIL_FROM_NAME=SkinX Support
+
+# Turnstile Widget Verification (Server-side secret key)
+TURNSTILE_SECRET_KEY=0x4AAAAAAAxxxxxxxxxxxxxxxxxxxxxxxxxx
+OTP_EXPIRY_MINUTES=10
+MAX_OTP_ATTEMPTS=5
+RESEND_COOLDOWN_SECONDS=60
+FRONTEND_URL=https://skin-x.app
 AUTH0_AUDIENCE=
 AUTH0_ISSUER_BASE_URL=
-MODEL_API_URL=
-RAG_API_URL=
-UPLOAD_DIR=
-MODEL_TYPE=
-MODEL_TIMEOUT=
+MODEL_API_URL=http://model-api:8080
+RAG_API_URL=http://rag-backend:8000
+UPLOAD_DIR=/app/uploads
+MODEL_TYPE=rest_api
+MODEL_TIMEOUT=30000
 MODEL_API_KEY=
-USE_MOCK_FALLBACK=
-USE_DATABASE=
+USE_MOCK_FALLBACK=false
+USE_DATABASE=true
 DATABASE_URL=
 DB_HOST=
 DB_PORT=

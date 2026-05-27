@@ -193,4 +193,5 @@ jobs:
              DOCKERHUB_USERNAME='${{ secrets.DOCKERHUB_USERNAME }}' \
              IMAGE_TAG='${{ github.sha }}' \
              PROD_DOMAIN='${{ vars.PROD_DOMAIN }}' \
+             DEPLOY_SERVICE='${{ inputs.service || \"all\" }}' \
              bash deploy/deploy-prod.sh"

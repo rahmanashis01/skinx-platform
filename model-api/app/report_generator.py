@@ -126,6 +126,12 @@ def generate_short_report(
             report = _call_openrouter_api(prediction, user_context, route_type)
             print("✅ OpenRouter report generated successfully")
             return report
+        except requests.exceptions.Timeout:
+            print(
+                f"⚠️  OpenRouter timed out after {Config.LLM_TIMEOUT_SECONDS}s, using fallback"
+            )
+        except requests.exceptions.RequestException as e:
+            print(f"⚠️  OpenRouter API failed: {str(e)[:100]}, using fallback")
         except Exception as e:
             print(
                 f"⚠️  OpenRouter response parse failed, using fallback: {str(e)[:100]}"
@@ -228,7 +234,7 @@ IMPORTANT INSTRUCTIONS:
         f"{Config.OPENROUTER_BASE_URL}/chat/completions",
         headers=headers,
         json=payload,
-        timeout=30,
+        timeout=Config.LLM_TIMEOUT_SECONDS,
     )
 
     response.raise_for_status()

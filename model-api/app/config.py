@@ -30,6 +30,7 @@ class Config:
     OPENROUTER_BASE_URL = os.getenv(
         "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
     )
+    LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", "12"))
 
     # API Configuration
     PORT = int(os.getenv("PORT", 8080))

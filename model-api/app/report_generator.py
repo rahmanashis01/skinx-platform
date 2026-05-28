@@ -1,14 +1,102 @@
 """
 Report generation module for SkinX Model API.
 
-Supports OpenRouter API integration with safe fallback responses.
+Supports OpenRouter API integration with robust JSON parsing and safe fallback responses.
 """
 
 import json
+import re
+from typing import Optional
 
 import requests
 
 from app.config import Config
+
+
+def _extract_json_from_text(text: str) -> Optional[dict]:
+    """
+    Safely extract and parse JSON from text response.
+
+    Handles markdown fences, extra text, and multiple JSON fragments.
+
+    Args:
+        text (str): Raw text response from LLM
+
+    Returns:
+        Optional[dict]: Parsed JSON or None if extraction fails
+    """
+    if not text or not isinstance(text, str):
+        return None
+
+    text = text.strip()
+
+    # Step 1: Try direct JSON parsing on cleaned text
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # Step 2: Remove markdown code fences
+    # Handle ```json ... ``` and ``` ... ```
+    if text.startswith("```json"):
+        text = text[7:]  # Remove ```json
+    elif text.startswith("```"):
+        text = text[3:]  # Remove ```
+
+    if text.endswith("```"):
+        text = text[:-3]  # Remove trailing ```
+
+    text = text.strip()
+
+    # Step 3: Try parsing again after fence removal
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # Step 4: Extract first valid JSON object using bracket matching
+    # Find the first opening brace
+    start_idx = text.find("{")
+    if start_idx == -1:
+        return None
+
+    # Find matching closing brace using a simple stack-based approach
+    brace_count = 0
+    in_string = False
+    escape_next = False
+
+    for i in range(start_idx, len(text)):
+        char = text[i]
+
+        # Handle escape sequences
+        if escape_next:
+            escape_next = False
+            continue
+
+        if char == "\\":
+            escape_next = True
+            continue
+
+        # Handle string boundaries
+        if char == '"' and not escape_next:
+            in_string = not in_string
+            continue
+
+        # Count braces only outside strings
+        if not in_string:
+            if char == "{":
+                brace_count += 1
+            elif char == "}":
+                brace_count -= 1
+                if brace_count == 0:
+                    # Found the matching closing brace
+                    json_str = text[start_idx : i + 1]
+                    try:
+                        return json.loads(json_str)
+                    except json.JSONDecodeError:
+                        return None
+
+    return None
 
 
 def generate_short_report(
@@ -35,9 +123,13 @@ def generate_short_report(
     # Try OpenRouter if configured
     if Config.LLM_PROVIDER == "openrouter" and Config.LLM_API_KEY:
         try:
-            return _call_openrouter_api(prediction, user_context, route_type)
+            report = _call_openrouter_api(prediction, user_context, route_type)
+            print("✅ OpenRouter report generated successfully")
+            return report
         except Exception as e:
-            print(f"⚠ OpenRouter API failed: {e}. Using fallback.")
+            print(
+                f"⚠️  OpenRouter response parse failed, using fallback: {str(e)[:100]}"
+            )
 
     # Fallback: deterministic report based on prediction
     return _generate_fallback_report(prediction, user_context, route_type)
@@ -47,7 +139,7 @@ def _call_openrouter_api(
     prediction: dict, user_context: dict | None, route_type: str
 ) -> dict:
     """
-    Call OpenRouter API for report generation.
+    Call OpenRouter API for report generation with robust JSON parsing.
 
     Args:
         prediction (dict): Model prediction
@@ -58,7 +150,7 @@ def _call_openrouter_api(
         dict: Report from OpenRouter
 
     Raises:
-        Exception: If API call fails
+        Exception: If API call fails or response cannot be parsed
     """
     class_name = prediction.get("class_name", "Unknown")
     confidence = prediction.get("confidence", 0.0)
@@ -84,7 +176,7 @@ def _call_openrouter_api(
 
     context_str = ", ".join(context_parts)
 
-    # Build prompt
+    # Build prompt - explicitly ask for JSON only, no markdown
     prompt = f"""You are a board-certified dermatologist assistant analyzing a skin lesion image screening result.
 
 Image analysis result:
@@ -103,14 +195,21 @@ Generate a SHORT clinical report (3-5 lines max) in JSON format with exactly the
 3. "NextSteps": 1-2 sentences with recommendations (urgent if high risk, routine if low risk)
 4. "Disclaimer": Standard medical disclaimer
 
-IMPORTANT:
+IMPORTANT INSTRUCTIONS:
 - If class is Normal or benign or low-risk: say it appears normal/benign, low concern
 - If class is suspicious/disease/high-risk: mention the detected class and recommend dermatologist
 - NEVER say "diagnosis" - this is a screening tool only
 - Keep each field SHORT (1-2 sentences max)
-- Return ONLY valid JSON, no markdown, no code blocks
+- Do NOT wrap in markdown code blocks (no ``` markers)
+- Do NOT include any text outside the JSON
+- Return ONLY valid JSON, nothing else
 
-Output JSON only:"""
+{{
+  "Findings": "...",
+  "ClinicalContext": "...",
+  "NextSteps": "...",
+  "Disclaimer": "..."
+}}"""
 
     # Call OpenRouter
     headers = {
@@ -135,26 +234,26 @@ Output JSON only:"""
     response.raise_for_status()
     result = response.json()
 
-    # Extract response
+    # Extract response content
     content = result["choices"][0]["message"]["content"]
 
-    # Clean potential markdown
-    content = content.strip()
-    if content.startswith("```json"):
-        content = content[7:]
-    if content.startswith("```"):
-        content = content[3:]
-    if content.endswith("```"):
-        content = content[:-3]
-    content = content.strip()
+    # Use robust JSON extraction helper
+    report = _extract_json_from_text(content)
 
-    # Parse JSON
-    report = json.loads(content)
+    if report is None:
+        raise ValueError("Could not extract valid JSON from OpenRouter response")
 
     # Validate required keys
     required_keys = ["Findings", "ClinicalContext", "NextSteps", "Disclaimer"]
-    if not all(k in report for k in required_keys):
-        raise ValueError("OpenRouter response missing required keys")
+    missing_keys = [k for k in required_keys if k not in report]
+
+    if missing_keys:
+        raise ValueError(f"OpenRouter response missing required keys: {missing_keys}")
+
+    # Ensure all values are strings
+    for key in required_keys:
+        if not isinstance(report.get(key), str):
+            report[key] = str(report.get(key, ""))
 
     return report
 

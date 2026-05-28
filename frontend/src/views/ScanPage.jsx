@@ -1561,7 +1561,7 @@ export default function ScanPage() {
                   formData.append("sessionData", JSON.stringify(sessionData));
 
                   // Call backend API
-                  const apiUrl = `${API_CONFIG.BASE_URL}/analyze-photo/public`;
+                  const apiUrl = `${API_CONFIG.BASE_URL}/api/analyze-photo/public`;
 
                   const uploadResponse = await fetch(apiUrl, {
                     method: "POST",

@@ -430,6 +430,7 @@ export default function ScanPage() {
   const [croppedPhoto, setCroppedPhoto] = useState(null);
   const [isPhotoSuitable, setIsPhotoSuitable] = useState(null);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [cropZoom, setCropZoom] = useState(MIN_ZOOM);
   const [cropPosition, setCropPosition] = useState({ x: 0, y: 0 });
 
@@ -1505,7 +1506,13 @@ export default function ScanPage() {
             {/* View Result Button - Mobile optimized */}
             <button
               onClick={async () => {
+                // Prevent duplicate clicks
+                if (isAnalyzing) {
+                  return;
+                }
+
                 try {
+                  setIsAnalyzing(true);
                   setLoadingProgress(true);
 
                   // Prepare FormData for multipart/form-data upload
@@ -1560,17 +1567,48 @@ export default function ScanPage() {
                   // Append sessionData as JSON string
                   formData.append("sessionData", JSON.stringify(sessionData));
 
-                  // Call backend API
+                  // Check for large images and warn user
+                  const totalSize = filesToUpload.reduce(
+                    (sum, file) => sum + (file.size || 0),
+                    0,
+                  );
+                  if (totalSize > 10 * 1024 * 1024) {
+                    console.log(
+                      "⚠️ Large images detected, analysis may take longer",
+                    );
+                  }
+
+                  // Call backend API with timeout
                   const apiUrl = `${API_CONFIG.BASE_URL}/api/analyze-photo/public`;
+                  const controller = new AbortController();
+                  const timeoutId = setTimeout(
+                    () => controller.abort(),
+                    120000,
+                  ); // 120 second timeout
 
-                  const uploadResponse = await fetch(apiUrl, {
-                    method: "POST",
-                    body: formData,
-                    credentials: "include",
-                  });
+                  try {
+                    const uploadResponse = await fetch(apiUrl, {
+                      method: "POST",
+                      body: formData,
+                      credentials: "include",
+                      signal: controller.signal,
+                    });
 
-                  if (!uploadResponse.ok) {
-                    throw new Error(`API error: ${uploadResponse.statusText}`);
+                    clearTimeout(timeoutId);
+
+                    if (!uploadResponse.ok) {
+                      throw new Error(
+                        `API error: ${uploadResponse.statusText}`,
+                      );
+                    }
+                  } catch (fetchError) {
+                    clearTimeout(timeoutId);
+                    if (fetchError.name === "AbortError") {
+                      throw new Error(
+                        "The scan is taking longer than expected. Please try again with a smaller image or try again in a moment.",
+                      );
+                    }
+                    throw fetchError;
                   }
 
                   const analysisResult = await uploadResponse.json();
@@ -1622,13 +1660,22 @@ export default function ScanPage() {
                   // Navigate to result page
                   navigate("/result-ready");
                 } catch (error) {
+                  console.error("Scan error:", error);
                   alert(`Failed to analyze photo: ${error.message}`);
                   setLoadingProgress(false);
+                  setIsAnalyzing(false);
                 }
               }}
-              className="w-full max-w-md mx-auto bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-3 sm:py-4 px-6 sm:px-8 rounded-full text-base sm:text-lg shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 transition-all duration-200 mb-3 sm:mb-4"
+              disabled={isAnalyzing}
+              className={`w-full max-w-md mx-auto font-bold py-3 sm:py-4 px-6 sm:px-8 rounded-full text-base sm:text-lg shadow-lg transition-all duration-200 mb-3 sm:mb-4 ${
+                isAnalyzing
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white hover:shadow-xl transform hover:scale-105 active:scale-95"
+              }`}
             >
-              View result
+              {isAnalyzing
+                ? "Analyzing image... this may take up to 60 seconds"
+                : "View result"}
             </button>
 
             {/* Disclaimer */}

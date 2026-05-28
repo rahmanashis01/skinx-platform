@@ -16,7 +16,7 @@ module.exports = {
    * Model Type: 'rest_api' for Python microservice
    * Other options: 'pytorch', 'tensorflow', 'onnx' (not implemented yet)
    */
-  modelType: process.env.MODEL_TYPE || 'rest_api',
+  modelType: process.env.MODEL_TYPE || "rest_api",
 
   /**
    * REST API Configuration
@@ -25,30 +25,33 @@ module.exports = {
   modelServiceUrl:
     process.env.MODEL_API_URL ||
     process.env.MODEL_SERVICE_URL ||
-    'http://model-api:8080',
+    "http://model-api:8080",
 
   /**
    * API Endpoints
    */
   endpoints: {
-    predict: '/predict',               // Main prediction endpoint
-    health: '/health',                 // Health check endpoint
-    modelInfo: '/debug/models'         // Model metadata endpoint (debug-only)
+    predict: "/predict", // Main prediction endpoint
+    health: "/health", // Health check endpoint
+    modelInfo: "/debug/models", // Model metadata endpoint (debug-only)
   },
 
   /**
    * Request timeout (milliseconds)
    * Increase if model inference takes longer
+   * Supports both MODEL_API_TIMEOUT_MS (preferred) and MODEL_TIMEOUT (legacy)
    */
-  requestTimeout: parseInt(process.env.MODEL_TIMEOUT) || 30000, // 30 seconds
+  requestTimeout:
+    parseInt(process.env.MODEL_API_TIMEOUT_MS || process.env.MODEL_TIMEOUT) ||
+    120000, // 120 seconds
 
   /**
    * Retry configuration for failed requests
    */
   retry: {
     maxAttempts: 3,
-    backoffMs: 1000,  // Wait 1 second between retries
-    retryOnTimeout: true
+    backoffMs: 1000, // Wait 1 second between retries
+    retryOnTimeout: true,
   },
 
   // =================================================================
@@ -65,20 +68,20 @@ module.exports = {
 
     // Normalization values (ImageNet defaults)
     // Update these if your model uses different normalization
-    imageMean: [0.485, 0.456, 0.406],  // RGB mean
-    imageStd: [0.229, 0.224, 0.225],   // RGB standard deviation
+    imageMean: [0.485, 0.456, 0.406], // RGB mean
+    imageStd: [0.229, 0.224, 0.225], // RGB standard deviation
 
     // Image format
-    colorSpace: 'RGB',  // 'RGB' or 'BGR'
+    colorSpace: "RGB", // 'RGB' or 'BGR'
 
     // Supported image formats
-    supportedFormats: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
+    supportedFormats: ["image/jpeg", "image/jpg", "image/png", "image/webp"],
 
     // Max file size (bytes) - 10MB
     maxFileSize: 10 * 1024 * 1024,
 
     // Image quality for JPEG compression (if needed)
-    jpegQuality: 95
+    jpegQuality: 95,
   },
 
   // =================================================================
@@ -90,28 +93,28 @@ module.exports = {
    * Update this list to match your model's output classes
    */
   conditions: [
-    'melanoma',
-    'atypical_nevus',
-    'benign_nevus',
-    'seborrheic_keratosis',
-    'basal_cell_carcinoma',
-    'squamous_cell_carcinoma',
-    'actinic_keratosis',
-    'dermatofibroma'
+    "melanoma",
+    "atypical_nevus",
+    "benign_nevus",
+    "seborrheic_keratosis",
+    "basal_cell_carcinoma",
+    "squamous_cell_carcinoma",
+    "actinic_keratosis",
+    "dermatofibroma",
   ],
 
   /**
    * Human-readable condition names
    */
   conditionLabels: {
-    melanoma: 'Melanoma',
-    atypical_nevus: 'Atypical Nevus',
-    benign_nevus: 'Benign Nevus',
-    seborrheic_keratosis: 'Seborrheic Keratosis',
-    basal_cell_carcinoma: 'Basal Cell Carcinoma',
-    squamous_cell_carcinoma: 'Squamous Cell Carcinoma',
-    actinic_keratosis: 'Actinic Keratosis',
-    dermatofibroma: 'Dermatofibroma'
+    melanoma: "Melanoma",
+    atypical_nevus: "Atypical Nevus",
+    benign_nevus: "Benign Nevus",
+    seborrheic_keratosis: "Seborrheic Keratosis",
+    basal_cell_carcinoma: "Basal Cell Carcinoma",
+    squamous_cell_carcinoma: "Squamous Cell Carcinoma",
+    actinic_keratosis: "Actinic Keratosis",
+    dermatofibroma: "Dermatofibroma",
   },
 
   /**
@@ -119,9 +122,9 @@ module.exports = {
    * Adjust these based on your model's performance and clinical guidelines
    */
   riskThresholds: {
-    high: 0.70,      // >= 70% confidence = high risk
-    medium: 0.40,    // >= 40% confidence = medium risk
-    low: 0.0         // < 40% confidence = low risk
+    high: 0.7, // >= 70% confidence = high risk
+    medium: 0.4, // >= 40% confidence = medium risk
+    low: 0.0, // < 40% confidence = low risk
   },
 
   /**
@@ -129,14 +132,14 @@ module.exports = {
    * Maps conditions to severity levels
    */
   severityMapping: {
-    melanoma: 'severe',
-    basal_cell_carcinoma: 'severe',
-    squamous_cell_carcinoma: 'severe',
-    atypical_nevus: 'moderate',
-    actinic_keratosis: 'moderate',
-    seborrheic_keratosis: 'mild',
-    benign_nevus: 'mild',
-    dermatofibroma: 'mild'
+    melanoma: "severe",
+    basal_cell_carcinoma: "severe",
+    squamous_cell_carcinoma: "severe",
+    atypical_nevus: "moderate",
+    actinic_keratosis: "moderate",
+    seborrheic_keratosis: "mild",
+    benign_nevus: "mild",
+    dermatofibroma: "mild",
   },
 
   // =================================================================
@@ -148,22 +151,22 @@ module.exports = {
    */
   features: {
     // Use mock data when model service is unavailable
-    useMockOnFailure: process.env.USE_MOCK_FALLBACK !== 'false',
+    useMockOnFailure: process.env.USE_MOCK_FALLBACK !== "false",
 
     // Enable model response caching
-    enableCaching: process.env.ENABLE_MODEL_CACHE === 'true',
+    enableCaching: process.env.ENABLE_MODEL_CACHE === "true",
 
     // Cache TTL in seconds (5 minutes)
     cacheTTL: 300,
 
     // Log detailed model requests/responses
-    verboseLogging: process.env.NODE_ENV === 'development',
+    verboseLogging: process.env.NODE_ENV === "development",
 
     // Enable ABCDE criteria analysis
     enableABCDEAnalysis: true,
 
     // Enable multi-image analysis
-    enableMultiImageAnalysis: true
+    enableMultiImageAnalysis: true,
   },
 
   // =================================================================
@@ -175,15 +178,15 @@ module.exports = {
    */
   mock: {
     enabled:
-      process.env.USE_MOCK_DATA === 'true' ||
+      process.env.USE_MOCK_DATA === "true" ||
       !(process.env.MODEL_API_URL || process.env.MODEL_SERVICE_URL),
 
     // Simulate processing delay (milliseconds)
     delay: 1500,
 
     // Default mock prediction
-    defaultCondition: 'benign_nevus',
-    defaultConfidence: 0.65
+    defaultCondition: "benign_nevus",
+    defaultConfidence: 0.65,
   },
 
   // =================================================================
@@ -207,7 +210,7 @@ module.exports = {
     apiKey: process.env.MODEL_API_KEY || null,
 
     // Use HTTPS for production
-    useHTTPS: process.env.NODE_ENV === 'production'
+    useHTTPS: process.env.NODE_ENV === "production",
   },
 
   // =================================================================
@@ -225,6 +228,6 @@ module.exports = {
     slowInferenceThreshold: 5000,
 
     // Alert on errors
-    alertOnError: process.env.NODE_ENV === 'production'
-  }
+    alertOnError: process.env.NODE_ENV === "production",
+  },
 };

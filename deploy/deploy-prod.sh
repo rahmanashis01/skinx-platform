@@ -4,6 +4,7 @@ set -euo pipefail
 PROJECT_DIR="${PROJECT_DIR:-/var/www/skinx/app}"
 COMPOSE_FILE="${COMPOSE_FILE:-${PROJECT_DIR}/docker-compose.prod.yml}"
 DEPLOY_SERVICE="${DEPLOY_SERVICE:-all}"
+CLEANUP_DOCKER_IMAGES="${CLEANUP_DOCKER_IMAGES:-true}"
 
 : "${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}"
 : "${IMAGE_TAG:?IMAGE_TAG is required}"
@@ -186,6 +187,56 @@ else
   echo "ERROR: Invalid DEPLOY_SERVICE value: ${DEPLOY_SERVICE}" >&2
   echo "Valid values: all, frontend, backend, model-api, rag-backend, telegram-bot" >&2
   exit 1
+fi
+
+# ============================================================================
+# Safe Docker Image Cleanup (after successful deploy and health checks)
+# ============================================================================
+# NOTE: model-api and rag-backend images are very large. Cleanup prevents
+# disk exhaustion from accumulated image layers during repeated deploys.
+#
+# IMPORTANT SAFETY GUARANTEES:
+# - Only removes unused images/layers (not running containers)
+# - Does NOT remove Docker volumes (named volumes, ChromaDB, model files preserved)
+# - Does NOT run docker system prune -a --volumes (would delete data)
+# - Cleanup failures do not fail the deployment (|| true)
+# ============================================================================
+
+if [[ "${CLEANUP_DOCKER_IMAGES}" == "true" ]]; then
+  echo ""
+  echo "=== Docker Image Cleanup (CLEANUP_DOCKER_IMAGES=true) ==="
+
+  # Show disk usage before cleanup
+  echo ""
+  echo "Disk usage BEFORE cleanup:"
+  docker system df || true
+  echo ""
+  df -h || true
+
+  echo ""
+  echo "Cleaning up unused images and builder cache..."
+
+  # Remove dangling images (layers not referenced by any image)
+  docker image prune -f || true
+
+  # Remove unused builder cache
+  docker builder prune -f || true
+
+  # Remove old unused images (not used in the last 24 hours)
+  # This safely removes old image tags that are no longer in use
+  docker image prune -a -f --filter "until=24h" || true
+
+  # Show disk usage after cleanup
+  echo ""
+  echo "Disk usage AFTER cleanup:"
+  docker system df || true
+  echo ""
+  df -h || true
+
+  echo "✓ Docker image cleanup completed"
+else
+  echo ""
+  echo "Docker image cleanup skipped (CLEANUP_DOCKER_IMAGES=false)"
 fi
 
 echo ""

@@ -17,8 +17,9 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
-from app.config import Config
 from torchvision import models, transforms
+
+from app.config import Config
 
 
 class ModelLoader:
@@ -114,8 +115,8 @@ class ModelLoader:
             model = model.to(self.device)
             model.eval()
 
-            print("✓ EfficientNet-B5 loaded successfully")
             self.cnn_model = model
+            print("✓ EfficientNet-B5 loaded successfully")
             return model
 
         except Exception as e:
@@ -168,13 +169,15 @@ class ModelLoader:
                 ]
             )
 
-            print("✓ MobileNetV3 loaded successfully")
             self.validator_model = model
             self.validator_preprocess = preprocess
+            print("✓ MobileNetV3 loaded successfully")
             return model, preprocess
 
         except Exception as e:
             print(f"⚠ Failed to load MobileNetV3: {e}")
+            self.validator_model = None
+            self.validator_preprocess = None
             return None, None
 
     def load_medsam(self) -> object:
@@ -190,6 +193,7 @@ class ModelLoader:
 
         if not Path(model_path).exists():
             print(f"⚠ MedSAM weights not found: {model_path}. Segmentation disabled.")
+            self.medsam_predictor = None
             return None
 
         try:
@@ -201,12 +205,13 @@ class ModelLoader:
             sam.to(device=self.device)
 
             predictor = SamPredictor(sam)
-            print("✓ MedSAM loaded successfully")
             self.medsam_predictor = predictor
+            print("✓ MedSAM loaded successfully")
             return predictor
 
         except Exception as e:
             print(f"⚠ Failed to load MedSAM: {e}. Segmentation disabled.")
+            self.medsam_predictor = None
             return None
 
     def get_efficientnet_transform(self) -> transforms.Compose:
@@ -230,9 +235,22 @@ class ModelLoader:
         """
         Load all models at startup.
 
+        IMPORTANT: Models are loaded and assigned to instance variables FIRST,
+        then status is calculated from the actual loaded objects.
+
         Returns:
-            Status dict with model availability.
+            Status dict with model availability (reflects actual loaded state).
         """
+        print("\nLoading all models...")
+
+        # Load models and assign to instance variables
+        self.load_classes()
+        self.load_efficientnet_b5()
+        self.load_medsam()
+        self.load_mobilenet_v3()
+
+        # Calculate status AFTER all models are loaded and assigned
+        # Status reflects the actual state of loaded model objects
         status = {
             "device": str(self.device),
             "classes": len(self.classes) if self.classes else 0,
@@ -240,10 +258,5 @@ class ModelLoader:
             "medsam_loaded": self.medsam_predictor is not None,
             "mobilenet_loaded": self.validator_model is not None,
         }
-
-        self.load_classes()
-        self.load_efficientnet_b5()
-        self.load_medsam()
-        self.load_mobilenet_v3()
 
         return status

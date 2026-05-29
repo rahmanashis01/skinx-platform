@@ -206,6 +206,10 @@ async def run_analysis(
     """
     Run full inference pipeline.
 
+    CRITICAL: Validation gate is strictly enforced.
+    If validation fails, return rejection response immediately.
+    Do NOT run MedSAM, EfficientNet, or OpenRouter on invalid images.
+
     Args:
         file: Uploaded image file
         route_type: "public", "authenticated", or "telegram"
@@ -213,7 +217,7 @@ async def run_analysis(
         telegram_context: Optional telegram metadata
 
     Returns:
-        dict: Analysis result
+        dict: Analysis result or rejection response
     """
     # Validate file
     if not file.filename:
@@ -225,19 +229,25 @@ async def run_analysis(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid image file: {e}")
 
-    # Run inference
+    # Run inference (includes validation gate)
     try:
         prediction = inference_engine.run_inference(image)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Inference failed: {e}")
 
-    # Check if validation failed - return rejection response early
-    if not prediction["validator_passed"]:
-        print("⚠ Image validation failed - returning rejection response")
+    # CRITICAL: Check if image was rejected (validation failed)
+    if prediction.get("rejected", False) or not prediction.get(
+        "validator_passed", False
+    ):
+        print("🛑 Image rejected - returning rejection response")
+
+        validation_info = prediction.get("validation_info", {})
+        reason = validation_info.get("reason", "unknown")
+
         return {
             "success": False,
             "rejected": True,
-            "reason": "non_skin_image",
+            "reason": reason,
             "message": "The uploaded image does not appear to contain a valid skin region. Please upload a clear skin/lesion photo.",
             "prediction": {
                 "class_name": "Invalid image",
@@ -245,15 +255,24 @@ async def run_analysis(
                 "risk_level": "unknown",
                 "validator": {
                     "passed": False,
-                    "info": prediction.get("validation_info", {}),
+                    "reason": reason,
+                    "skin_color_ratio": validation_info.get("skin_color_ratio"),
+                    "mobilenet_confidence": validation_info.get("mobilenet_confidence"),
                 },
-                "segmentation": {"available": False},
+                "segmentation": {
+                    "available": False,
+                },
             },
         }
 
-    # Validation passed - proceed with classification and report generation
-    class_name = prediction["class_name"]
-    if class_name == "Normal":
+    # VALIDATION PASSED - proceed to classification and report generation
+    print("✓ Image accepted - proceeding to classification and report generation")
+
+    class_name = prediction.get("class_name", "Unknown")
+    confidence = prediction.get("confidence", 0.0)
+
+    # Determine risk level
+    if class_name.lower() == "normal":
         risk_level = "low"
     elif class_name in ["Melanoma", "Melanoma metastatic"]:
         risk_level = "high"
@@ -262,15 +281,25 @@ async def run_analysis(
     else:
         risk_level = "medium"
 
-    prediction["risk_level"] = risk_level
-
     # Generate report (only if validation passed)
     try:
-        report = generate_short_report(prediction, user_context, route_type)
+        report = generate_short_report(
+            {
+                "class_name": class_name,
+                "confidence": confidence,
+                "risk_level": risk_level,
+                "validator_passed": True,
+                "segmentation_available": prediction.get(
+                    "segmentation_available", False
+                ),
+            },
+            user_context,
+            route_type,
+        )
     except Exception as e:
         print(f"⚠ Report generation error: {e}")
         report = {
-            "Findings": f"Analysis detected {class_name} with {prediction['confidence']:.1f}% confidence.",
+            "Findings": f"Analysis detected {class_name} with {confidence:.1f}% confidence.",
             "ClinicalContext": "Detailed report generation failed. Classification result available.",
             "NextSteps": "Consult a dermatologist for confirmation and recommendations.",
             "Disclaimer": "This is an AI screening tool, not a medical diagnosis.",
@@ -285,10 +314,15 @@ async def run_analysis(
         "telegram_context": telegram_context,
         "prediction": {
             "class_name": class_name,
-            "confidence": round(prediction["confidence"], 2),
+            "confidence": round(confidence, 2),
             "risk_level": risk_level,
-            "validator": {"passed": prediction["validator_passed"]},
-            "segmentation": {"available": prediction["segmentation_available"]},
+            "validator": {
+                "passed": True,
+                "reason": "validation_passed",
+            },
+            "segmentation": {
+                "available": prediction.get("segmentation_available", False),
+            },
         },
         "report": report,
         "disclaimer": "This AI result is for screening support only and is not a medical diagnosis.",

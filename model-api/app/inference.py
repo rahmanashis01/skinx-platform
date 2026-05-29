@@ -126,6 +126,7 @@ class InferenceEngine:
             raise RuntimeError("EfficientNet-B5 model not loaded")
 
         try:
+            print("Running EfficientNet-B5 classification...")
             transform = self.loader.get_efficientnet_transform()
             input_tensor = transform(cropped_image).unsqueeze(0).to(self.device)
 
@@ -136,6 +137,10 @@ class InferenceEngine:
 
             class_name = self.loader.classes[predicted_idx.item()]
             confidence_pct = float(confidence.item() * 100.0)
+
+            print(
+                f"EfficientNet-B5 prediction: {class_name} confidence: {confidence_pct:.2f}%"
+            )
 
             return {"class_name": class_name, "confidence": confidence_pct}
 
@@ -158,10 +163,12 @@ class InferenceEngine:
         from app.config import Config
 
         validation_info = {
+            "passed": False,
+            "reason": None,
             "skin_color_ratio": 0.0,
             "color_check_passed": False,
             "mobilenet_check_passed": False,
-            "overall_passed": False,
+            "mobilenet_confidence": None,
         }
 
         try:
@@ -172,6 +179,7 @@ class InferenceEngine:
 
             if img_np.size == 0:
                 print("✗ Image validation failed: Empty image")
+                validation_info["reason"] = "empty_image"
                 return False, validation_info
 
             # Step 1: YCrCb color detection (mandatory)
@@ -185,7 +193,7 @@ class InferenceEngine:
             skin_pixels = (Cr >= 133) & (Cr <= 173) & (Cb >= 77) & (Cb <= 127)
             skin_ratio = np.sum(skin_pixels) / skin_pixels.size
 
-            validation_info["skin_color_ratio"] = skin_ratio
+            validation_info["skin_color_ratio"] = float(skin_ratio)
 
             print(f"  Skin color ratio: {skin_ratio * 100.0:.2f}%")
             print(f"  Min required ratio: {Config.MIN_SKIN_COLOR_RATIO * 100.0:.2f}%")
@@ -194,6 +202,7 @@ class InferenceEngine:
                 print(
                     f"✗ Color check FAILED: Insufficient skin pixels ({skin_ratio * 100.0:.2f}% < {Config.MIN_SKIN_COLOR_RATIO * 100.0:.2f}%)"
                 )
+                validation_info["reason"] = "insufficient_skin_color"
                 return False, validation_info
 
             validation_info["color_check_passed"] = True
@@ -219,6 +228,8 @@ class InferenceEngine:
                         max_prob, _ = probs.max(0)
                         max_prob_val = float(max_prob.item())
 
+                        validation_info["mobilenet_confidence"] = max_prob_val
+
                         print(
                             f"  MobileNetV3 max confidence: {max_prob_val * 100.0:.2f}%"
                         )
@@ -233,6 +244,7 @@ class InferenceEngine:
                             print(
                                 f"✗ MobileNetV3 validation FAILED: Low confidence ({max_prob_val * 100.0:.2f}% < {Config.SKIN_VALIDATION_THRESHOLD * 100.0:.2f}%)"
                             )
+                            validation_info["reason"] = "low_mobilenet_confidence"
                             return False, validation_info
 
                 except Exception as e:
@@ -246,21 +258,26 @@ class InferenceEngine:
                 validation_info["mobilenet_check_passed"] = True
 
             # Both checks passed (or color passed and validator unavailable)
-            validation_info["overall_passed"] = True
+            validation_info["passed"] = True
             print("✓ Image validation PASSED")
             return True, validation_info
 
         except Exception as e:
             print(f"✗ Validation error: {e}")
+            validation_info["reason"] = "validation_error"
             return False, validation_info
 
     def run_inference(self, image: Image.Image) -> dict:
         """
         Run full inference pipeline on image.
 
-        1. Validate image
-        2. Segment lesion
-        3. Classify lesion
+        CRITICAL SAFETY: If validation fails, immediately return rejection.
+        Do NOT run MedSAM, EfficientNet, or OpenRouter on invalid images.
+
+        Pipeline order:
+        1. Validate image (GATE - must pass to proceed)
+        2. Segment lesion (MedSAM)
+        3. Classify lesion (EfficientNet-B5)
         4. Return structured result
 
         Args:
@@ -269,35 +286,58 @@ class InferenceEngine:
         Returns:
             dict: Prediction result with classification, segmentation, validation info
         """
-        # Step 1: Validate
-        is_valid = self.validate_skin_image(image)
+        # Step 1: Validate - CRITICAL GATE
+        print("\n" + "=" * 70)
+        print("INFERENCE PIPELINE START")
+        print("=" * 70)
 
-        result = {
-            "validator_passed": is_valid,
-            "class_name": "Non-Skin Image",
-            "confidence": 0.0,
-            "segmentation_available": False,
-        }
+        is_valid, validation_info = self.validate_skin_image(image)
 
+        # If validation fails, reject immediately - do NOT proceed to other models
         if not is_valid:
-            return result
+            print("\n⚠ VALIDATION FAILED - REJECTING IMAGE")
+            print("  MedSAM: SKIPPED (validation failed)")
+            print("  EfficientNet: SKIPPED (validation failed)")
+            print("  OpenRouter: SKIPPED (validation failed)")
+            print("=" * 70 + "\n")
+            return {
+                "success": False,
+                "rejected": True,
+                "validator_passed": False,
+                "validation_info": validation_info,
+                "class_name": "Invalid image",
+                "confidence": 0.0,
+                "segmentation_available": False,
+            }
+
+        # Validation PASSED - proceed to segmentation and classification
+        print("\n✓ VALIDATION PASSED - PROCEEDING TO SEGMENTATION AND CLASSIFICATION")
 
         # Step 2: Segment
         try:
             cropped, seg_success = self.segment_lesion(image)
-            result["segmentation_available"] = seg_success
         except Exception as e:
             print(f"⚠ Segmentation error: {e}")
             cropped = self._fallback_crop(image.convert("RGB"))
-            result["segmentation_available"] = False
+            seg_success = False
 
-        # Step 3: Classify
+        # Step 3: Classify (only if validation passed)
         try:
             classification = self.classify_lesion(cropped)
-            result["class_name"] = classification["class_name"]
-            result["confidence"] = classification["confidence"]
+            class_name = classification["class_name"]
+            confidence = classification["confidence"]
         except Exception as e:
             print(f"✗ Classification failed: {e}")
             raise
 
-        return result
+        print("=" * 70 + "\n")
+
+        return {
+            "success": True,
+            "rejected": False,
+            "validator_passed": True,
+            "validation_info": validation_info,
+            "class_name": class_name,
+            "confidence": confidence,
+            "segmentation_available": seg_success,
+        }

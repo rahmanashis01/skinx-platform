@@ -114,6 +114,9 @@ class InferenceEngine:
         """
         Classify lesion using EfficientNet-B5 (/models/incremental_b5.pt).
 
+        Returns top-3 predictions with confidence scores.
+        Caller can use these to detect uncertainty/OOD signals.
+
         IMPORTANT: This is the real lesion classifier (incremental_b5.pt).
         Every accepted valid skin image MUST be classified through this model
         before report generation.
@@ -122,7 +125,11 @@ class InferenceEngine:
             cropped_image (Image.Image): Preprocessed lesion image
 
         Returns:
-            dict: {class_name: str, confidence: float (0-100)}
+            dict: {
+                class_name: str (top-1 class),
+                confidence: float (0-100, top-1),
+                top_predictions: list of dicts with class_name, confidence
+            }
 
         Raises:
             RuntimeError: If model not loaded or inference fails
@@ -140,19 +147,113 @@ class InferenceEngine:
             with torch.no_grad():
                 outputs = self.loader.cnn_model(input_tensor)
                 probabilities = torch.softmax(outputs, dim=1)[0]
-                confidence, predicted_idx = probabilities.max(0)
 
-            class_name = self.loader.classes[predicted_idx.item()]
-            confidence_pct = float(confidence.item() * 100.0)
+            # Get top-3 predictions
+            top_k_conf, top_k_idx = torch.topk(probabilities, k=3)
 
-            print(
-                f"EfficientNet-B5 prediction: {class_name} confidence: {confidence_pct:.2f}%"
-            )
+            top_predictions = []
+            for i, (conf, idx) in enumerate(zip(top_k_conf, top_k_idx)):
+                class_name = self.loader.classes[idx.item()]
+                conf_pct = float(conf.item() * 100.0)
+                top_predictions.append(
+                    {"class_name": class_name, "confidence": conf_pct}
+                )
 
-            return {"class_name": class_name, "confidence": confidence_pct}
+            # Log top-3 predictions and margin
+            print("EfficientNet-B5 Top-3 Predictions:")
+            for i, pred in enumerate(top_predictions, 1):
+                print(f"  Top-{i}: {pred['class_name']} {pred['confidence']:.2f}%")
+
+            if len(top_predictions) >= 2:
+                margin = (
+                    top_predictions[0]["confidence"] - top_predictions[1]["confidence"]
+                )
+                print(f"  Top-1 to Top-2 margin: {margin:.2f}%")
+
+            return {
+                "class_name": top_predictions[0]["class_name"],
+                "confidence": top_predictions[0]["confidence"],
+                "top_predictions": top_predictions,
+            }
 
         except Exception as e:
             raise RuntimeError(f"EfficientNet-B5 inference failed: {e}")
+
+    def is_classification_uncertain(
+        self, classification: dict, validation_info: dict
+    ) -> tuple[bool, str]:
+        """
+        Check if EfficientNet-B5 classification is uncertain or OOD.
+
+        Detects uncertainty/non-lesion signals:
+        A. Top-1 confidence below threshold
+        B. Top-1 to Top-2 margin too small (model confused)
+        C. Borderline validation tier with low confidence
+        D. Predicted class is a known "uncertain" class
+
+        Args:
+            classification: dict from classify_lesion() with top_predictions
+            validation_info: dict from validate_skin_image()
+
+        Returns:
+            (is_uncertain: bool, reason: str)
+        """
+        from app.config import Config
+
+        top_predictions = classification.get("top_predictions", [])
+        top1_confidence = (
+            classification.get("confidence", 0.0) / 100.0
+        )  # Convert to 0-1
+        validation_tier = validation_info.get("validation_tier", "unknown")
+
+        # Known "uncertain" class names that indicate non-lesion
+        uncertain_classes = {
+            "unknown",
+            "unclassified",
+            "invalid",
+            "non_skin",
+            "background",
+            "other",
+            "none",
+        }
+
+        # Check A: Top-1 confidence below threshold
+        if top1_confidence < Config.CLASSIFICATION_CONFIDENCE_THRESHOLD:
+            print(
+                f"⚠ Uncertainty Check A: Top-1 confidence {top1_confidence * 100.0:.2f}% < threshold {Config.CLASSIFICATION_CONFIDENCE_THRESHOLD * 100.0:.2f}%"
+            )
+            return True, "low_top1_confidence"
+
+        # Check B: Top-1 to Top-2 margin too small
+        if len(top_predictions) >= 2:
+            top2_confidence = top_predictions[1]["confidence"] / 100.0
+            margin = top1_confidence - top2_confidence
+            if margin < Config.CLASSIFICATION_MARGIN_THRESHOLD:
+                print(
+                    f"⚠ Uncertainty Check B: Top-1 to Top-2 margin {margin * 100.0:.2f}% < threshold {Config.CLASSIFICATION_MARGIN_THRESHOLD * 100.0:.2f}%"
+                )
+                print(
+                    f"   Model is uncertain between: {top_predictions[0]['class_name']} vs {top_predictions[1]['class_name']}"
+                )
+                return True, "low_top1_top2_margin"
+
+        # Check C: Borderline validation tier with low confidence
+        if validation_tier != "tier_3_good_zone":
+            if top1_confidence < Config.BORDERLINE_STRICT_CONFIDENCE_THRESHOLD:
+                print(
+                    f"⚠ Uncertainty Check C: Borderline image ({validation_tier}) with low confidence {top1_confidence * 100.0:.2f}% < strict threshold {Config.BORDERLINE_STRICT_CONFIDENCE_THRESHOLD * 100.0:.2f}%"
+                )
+                return True, "borderline_low_confidence"
+
+        # Check D: Predicted class is a known uncertain/invalid class
+        top1_class = classification.get("class_name", "").lower()
+        if top1_class in uncertain_classes:
+            print(
+                f"⚠ Uncertainty Check D: Top-1 class '{classification.get('class_name')}' is an uncertain/invalid class"
+            )
+            return True, "uncertain_class_predicted"
+
+        return False, "confident"
 
     def validate_skin_image(self, image: Image.Image) -> tuple[bool, dict]:
         """
@@ -369,14 +470,16 @@ class InferenceEngine:
         """
         Run full inference pipeline on image.
 
-        CRITICAL SAFETY: If validation fails, immediately return rejection.
-        Do NOT run MedSAM, EfficientNet, or OpenRouter on invalid images.
+        CRITICAL SAFETY GATES:
+        1. Validation gate (two-tier) - must pass to proceed
+        2. Classification uncertainty gate - detects OOD/non-lesion after EfficientNet-B5
 
-        For valid images:
-        1. Validate image (GATE - must pass to proceed)
+        Pipeline order (for ACCEPTED images):
+        1. Validate image (two-tier gate - must pass to proceed)
         2. Segment lesion (MedSAM)
-        3. Classify lesion (EfficientNet-B5 /models/incremental_b5.pt)
-        4. Return structured result with classification
+        3. Classify lesion (EfficientNet-B5 using incremental_b5.pt)
+        4. Check classification uncertainty (top-k, margin, borderline confidence)
+        5. Return structured result or uncertainty response
 
         Args:
             image (Image.Image): Input image
@@ -384,7 +487,7 @@ class InferenceEngine:
         Returns:
             dict: Prediction result with classification, segmentation, validation info
         """
-        # Step 1: Validate - CRITICAL GATE
+        # Step 1: Validate - CRITICAL GATE (two-tier validation)
         print("\n" + "=" * 70)
         print("INFERENCE PIPELINE START")
         print("=" * 70)
@@ -394,11 +497,9 @@ class InferenceEngine:
         # If validation fails, reject immediately - do NOT proceed to other models
         if not is_valid:
             print("\n🛑 VALIDATION GATE FAILED - REJECTING IMAGE")
-            print("  MedSAM segmentation: SKIPPED (image rejected at validation)")
-            print(
-                "  EfficientNet-B5 classification: SKIPPED (image rejected at validation)"
-            )
-            print("  OpenRouter report: SKIPPED (image rejected at validation)")
+            print("  MedSAM segmentation: SKIPPED (validation failed)")
+            print("  EfficientNet-B5 classification: SKIPPED (validation failed)")
+            print("  OpenRouter report: SKIPPED (validation failed)")
             print("=" * 70 + "\n")
             return {
                 "success": False,
@@ -408,6 +509,8 @@ class InferenceEngine:
                 "class_name": "Invalid image",
                 "confidence": 0.0,
                 "segmentation_available": False,
+                "uncertain": False,
+                "uncertainty_reason": None,
             }
 
         # Validation PASSED - proceed to segmentation and classification
@@ -421,16 +524,45 @@ class InferenceEngine:
             cropped = self._fallback_crop(image.convert("RGB"))
             seg_success = False
 
-        # Step 3: Classify with EfficientNet-B5 (/models/incremental_b5.pt)
-        # CRITICAL: Every accepted valid skin image MUST be classified through this
+        # Step 3: Classify with EfficientNet-B5 (incremental_b5.pt)
+        # This is the core disease classification model
         try:
             classification = self.classify_lesion(cropped)
             class_name = classification["class_name"]
             confidence = classification["confidence"]
+            top_predictions = classification.get("top_predictions", [])
         except Exception as e:
             print(f"✗ EfficientNet-B5 classification failed: {e}")
             raise
 
+        # Step 4: Check classification uncertainty (OOD/non-lesion guard)
+        print("\n🔎 Checking classification uncertainty...")
+        is_uncertain, uncertainty_reason = self.is_classification_uncertain(
+            classification, validation_info
+        )
+
+        if is_uncertain:
+            print(f"\n⚠ CLASSIFICATION UNCERTAINTY DETECTED: {uncertainty_reason}")
+            print("  Result marked as uncertain/non-lesion")
+            print("  OpenRouter report: SKIPPED (uncertain classification)")
+            print("=" * 70 + "\n")
+            return {
+                "success": False,
+                "rejected": True,
+                "validator_passed": True,
+                "validation_info": validation_info,
+                "class_name": "Uncertain image",
+                "confidence": 0.0,
+                "top_predictions": top_predictions,
+                "actual_top1_confidence": confidence,
+                "segmentation_available": seg_success,
+                "uncertain": True,
+                "uncertainty_reason": uncertainty_reason,
+            }
+
+        # Classification is confident - proceed with result
+        print(f"\n✅ CLASSIFICATION CONFIDENT: {class_name} {confidence:.2f}%")
+        print("  Proceeding to report generation")
         print("=" * 70 + "\n")
 
         return {
@@ -440,5 +572,8 @@ class InferenceEngine:
             "validation_info": validation_info,
             "class_name": class_name,
             "confidence": confidence,
+            "top_predictions": top_predictions,
             "segmentation_available": seg_success,
+            "uncertain": False,
+            "uncertainty_reason": None,
         }

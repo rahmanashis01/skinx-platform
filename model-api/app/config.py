@@ -48,6 +48,36 @@ class Config:
     #   - MobileNetV3 confidence >= SKIN_VALIDATION_THRESHOLD: accept (with warning)
     SKIN_VALIDATION_THRESHOLD = float(os.getenv("SKIN_VALIDATION_THRESHOLD", "0.30"))
 
+    # ========================================================================
+    # EfficientNet-B5 Classification Uncertainty Guard
+    # ========================================================================
+    # After EfficientNet-B5 classification, check for uncertainty/OOD signals
+    # to avoid returning disease labels for non-lesion or uncertain images.
+
+    # Minimum confidence for top-1 prediction to be considered valid
+    # If top-1 confidence < this threshold, mark as uncertain
+    # Range: 0.0 to 1.0 (converted to percentage for logging)
+    CLASSIFICATION_CONFIDENCE_THRESHOLD = float(
+        os.getenv("CLASSIFICATION_CONFIDENCE_THRESHOLD", "0.60")
+    )
+
+    # Minimum margin between top-1 and top-2 predictions
+    # If (top1_conf - top2_conf) < this threshold, decision is uncertain
+    # High margin indicates confident classification (not confused between classes)
+    # Range: 0.0 to 1.0
+    CLASSIFICATION_MARGIN_THRESHOLD = float(
+        os.getenv("CLASSIFICATION_MARGIN_THRESHOLD", "0.15")
+    )
+
+    # Strict confidence threshold for borderline validation tier images
+    # Images from TIER 2 (borderline skin ratio) require higher confidence
+    # to avoid false disease labels on edge cases
+    # If validation_tier != tier_3_good_zone AND top1_conf < this threshold: uncertain
+    # Range: 0.0 to 1.0
+    BORDERLINE_STRICT_CONFIDENCE_THRESHOLD = float(
+        os.getenv("BORDERLINE_STRICT_CONFIDENCE_THRESHOLD", "0.75")
+    )
+
     # LLM Configuration - OpenRouter or other vendor APIs
     LLM_PROVIDER = os.getenv("LLM_PROVIDER", "none")
     LLM_API_KEY = os.getenv("LLM_API_KEY", "")
@@ -99,8 +129,11 @@ class Config:
             "class_csv_configured": bool(cls.CLASS_CSV_PATH),
             "llm_provider": cls.LLM_PROVIDER if cls.LLM_PROVIDER != "none" else None,
             "llm_api_key_set": bool(cls.LLM_API_KEY),
+            "port": cls.PORT,
             "validation_hard_reject_threshold": cls.MIN_SKIN_COLOR_RATIO_HARD_REJECT,
             "validation_borderline_threshold": cls.MIN_SKIN_COLOR_RATIO_BORDERLINE,
             "mobilenet_confidence_threshold": cls.SKIN_VALIDATION_THRESHOLD,
-            "port": cls.PORT,
+            "classification_confidence_threshold": cls.CLASSIFICATION_CONFIDENCE_THRESHOLD,
+            "classification_margin_threshold": cls.CLASSIFICATION_MARGIN_THRESHOLD,
+            "borderline_strict_confidence_threshold": cls.BORDERLINE_STRICT_CONFIDENCE_THRESHOLD,
         }

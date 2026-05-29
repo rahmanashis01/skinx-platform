@@ -3,7 +3,7 @@ SkinX Model API - Production.
 
 FastAPI application for skin lesion classification and segmentation.
 - Production inference service with Linux-safe runtime assumptions
-- Kept: EfficientNet-B5, MedSAM, MobileNetV3
+- Kept: EfficientNet-B5 (/models/incremental_b5.pt), MedSAM, MobileNetV3
 - Device: CUDA > CPU (no MPS)
 - Report generation: OpenRouter with fallback
 
@@ -204,18 +204,21 @@ async def run_analysis(
     telegram_context: Optional[dict] = None,
 ):
     """
-    Run full inference pipeline.
+    Run full inference pipeline with two safety gates.
 
-    CRITICAL: Two-tier validation gate strictly enforced.
-    If image fails validation (Tier 1 hard reject or Tier 2 borderline),
-    return rejection response immediately.
-    Do NOT run MedSAM, EfficientNet-B5, or OpenRouter on invalid images.
+    CRITICAL SAFETY GATES:
+    1. Validation gate (two-tier) - rejects obvious non-skin images
+    2. Classification uncertainty gate - detects OOD/non-lesion after EfficientNet-B5
 
-    For valid images:
-    1. Validate (two-tier gate)
+    Pipeline:
+    1. Validate image (two-tier)
     2. Run MedSAM segmentation
     3. Run EfficientNet-B5 classification (/models/incremental_b5.pt)
-    4. Generate OpenRouter/fallback report
+    4. Check classification uncertainty (top-k, margin, borderline confidence)
+    5. Generate report (OpenRouter or fallback) only if both gates pass
+
+    For rejected or uncertain images: return rejection response without disease label
+    For confident valid images: return full report with disease classification
 
     Args:
         file: Uploaded image file
@@ -224,7 +227,7 @@ async def run_analysis(
         telegram_context: Optional telegram metadata
 
     Returns:
-        dict: Analysis result (success) or rejection response (failed validation)
+        dict: Analysis result (success with report) or rejection response
     """
     # Validate file
     if not file.filename:
@@ -236,39 +239,39 @@ async def run_analysis(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid image file: {e}")
 
-    # Run inference (includes validation gate)
+    # Run inference (includes both validation gates)
     try:
         prediction = inference_engine.run_inference(image)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Inference failed: {e}")
 
-    # Check if image was rejected at validation gate
-    # Do NOT call OpenRouter, return clear rejection response
-    if prediction.get("rejected", False) or not prediction.get(
+    # Check if image was rejected at validation gate (TIER 1 or TIER 2)
+    if prediction.get("rejected", False) and not prediction.get(
         "validator_passed", False
     ):
         print("🛑 IMAGE REJECTED AT VALIDATION GATE")
-        print("   NOT calling OpenRouter (image rejected before classification)")
+        print("   Returning validation rejection response (not a skin image)")
 
         validation_info = prediction.get("validation_info", {})
-        reason = validation_info.get("reason", "unknown")
+        reason = validation_info.get("reason", "validation_failed")
 
         return {
             "success": False,
             "rejected": True,
             "reason": "non_skin_image",
+            "severity": "invalid",
+            "confidence": 0,
             "message": "The uploaded image does not appear to contain a valid skin region. Please upload a clear skin/lesion photo.",
             "prediction": {
                 "class_name": "Invalid image",
                 "confidence": 0,
-                "risk_level": "invalid",
+                "risk_level": "unknown",
                 "validator": {
                     "passed": False,
                     "reason": reason,
                     "skin_color_ratio": validation_info.get("skin_color_ratio"),
-                    "mobilenet_confidence": validation_info.get("mobilenet_confidence"),
                     "validation_tier": validation_info.get("validation_tier"),
-                    "validation_decision": validation_info.get("decision"),
+                    "mobilenet_confidence": validation_info.get("mobilenet_confidence"),
                 },
                 "segmentation": {
                     "available": False,
@@ -276,16 +279,58 @@ async def run_analysis(
             },
         }
 
-    # VALIDATION PASSED - Image was accepted by two-tier validation
-    # Proceed to report generation
-    print("\n✅ IMAGE ACCEPTED AT VALIDATION GATE")
-    print("   MedSAM segmentation: COMPLETED")
-    print("   EfficientNet-B5 classification: COMPLETED")
+    # Check if image was rejected at classification uncertainty gate
+    if (
+        prediction.get("rejected", False)
+        and prediction.get("validator_passed", False)
+        and prediction.get("uncertain", False)
+    ):
+        print("🛑 IMAGE REJECTED AT CLASSIFICATION UNCERTAINTY GATE")
+        print("   Image is uncertain/non-lesion (not returning disease label)")
+
+        uncertainty_info = prediction.get("uncertainty_info", {})
+        top_predictions = prediction.get("top_predictions", [])
+        actual_confidence = prediction.get("actual_top1_confidence", 0.0)
+        uncertainty_reason = prediction.get("uncertainty_reason", "unknown")
+
+        return {
+            "success": False,
+            "rejected": True,
+            "reason": "uncertain_or_non_lesion_image",
+            "severity": "invalid",
+            "confidence": 0,
+            "message": "The image could not be confidently analyzed as a skin lesion. Please upload a clear close-up photo of the skin spot or lesion.",
+            "prediction": {
+                "class_name": "Uncertain image",
+                "confidence": 0,
+                "actual_top1_confidence": actual_confidence,
+                "risk_level": "unknown",
+                "top_predictions": top_predictions,
+                "validator": {
+                    "passed": True,
+                    "validation_tier": prediction.get("validation_info", {}).get(
+                        "validation_tier"
+                    ),
+                },
+                "segmentation": {
+                    "available": prediction.get("segmentation_available", False),
+                },
+                "uncertainty": {
+                    "is_uncertain": True,
+                    "reason": uncertainty_reason,
+                    "details": uncertainty_info.get("details", {}),
+                },
+            },
+        }
+
+    # BOTH GATES PASSED - image is valid and classification is confident
+    print("\n✅ BOTH GATES PASSED - Image validated and classified confidently")
     print("   Generating report...")
 
     class_name = prediction.get("class_name", "Unknown")
     confidence = prediction.get("confidence", 0.0)
     segmentation_available = prediction.get("segmentation_available", False)
+    top_predictions = prediction.get("top_predictions", [])
 
     # Determine risk level based on class
     if class_name.lower() == "normal":
@@ -297,7 +342,8 @@ async def run_analysis(
     else:
         risk_level = "medium"
 
-    # Generate report (only after validation AND classification passed)
+    # Generate report (only after both gates passed)
+    print("Calling OpenRouter or fallback report generator...")
     try:
         report = generate_short_report(
             {
@@ -331,9 +377,13 @@ async def run_analysis(
             "class_name": class_name,
             "confidence": round(confidence, 2),
             "risk_level": risk_level,
+            "severity": risk_level,
+            "top_predictions": top_predictions,
             "validator": {
                 "passed": prediction.get("validator_passed", True),
-                "reason": "validation_passed",
+                "validation_tier": prediction.get("validation_info", {}).get(
+                    "validation_tier"
+                ),
             },
             "segmentation": {
                 "available": segmentation_available,
@@ -357,7 +407,7 @@ async def health_check():
         "service": "skinx-model-api",
         "version": "1.0.0-production",
         "models": {
-            "efficientnet": model_loader.cnn_model is not None,
+            "efficientnet_b5": model_loader.cnn_model is not None,
             "medsam": model_loader.medsam_predictor is not None,
             "mobilenet_validator": model_loader.validator_model is not None,
         }
@@ -519,9 +569,9 @@ async def debug_models():
     return {
         "device": str(model_loader.device),
         "classes": len(model_loader.classes) if model_loader.classes else 0,
-        "efficientnet_loaded": model_loader.cnn_model is not None,
+        "efficientnet_b5_loaded": model_loader.cnn_model is not None,
         "medsam_loaded": model_loader.medsam_predictor is not None,
-        "mobilenet_loaded": model_loader.validator_model is not None,
+        "mobilenet_validator_loaded": model_loader.validator_model is not None,
     }
 
 

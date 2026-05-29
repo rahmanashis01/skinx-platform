@@ -7,6 +7,10 @@ set -euo pipefail
 # Checks internal services and optionally public endpoints.
 # Internal checks retry up to 30 times with 2-second delays.
 # Public checks warn only (DNS/SSL may not be ready on first deploy).
+#
+# Frontend health checks:
+# - Internal: Checks Docker container at 127.0.0.1:3000 (build artifact source)
+# - Public: Checks Nginx static serving at 127.0.0.1/ (production serving)
 # ============================================================================
 
 MAX_RETRIES=30
@@ -46,11 +50,35 @@ check_service() {
 echo "=== Internal Health Checks ==="
 echo ""
 
-check_service "Frontend" "http://127.0.0.1:3000/" || exit 1
+check_service "Frontend Container" "http://127.0.0.1:3000/" || exit 1
 check_service "Backend" "http://127.0.0.1:5001/health" || exit 1
 check_service "Model API" "http://127.0.0.1:8080/health" || exit 1
 check_service "RAG Backend" "http://127.0.0.1:8000/health" || exit 1
 check_service "Telegram Bot" "http://127.0.0.1:5050/health" || exit 1
+
+# ============================================================================
+# Static Frontend Serving Check (Production)
+# ============================================================================
+
+echo ""
+echo "=== Static Frontend Serving Check (Production) ==="
+echo ""
+
+# Check if static files directory exists and has content
+if [[ -d /var/www/skinx/frontend-static && -n "$(ls -A /var/www/skinx/frontend-static 2>/dev/null)" ]]; then
+  echo "✓ Frontend static files directory exists: /var/www/skinx/frontend-static/"
+
+  # Count files
+  FILE_COUNT=$(find /var/www/skinx/frontend-static -type f | wc -l)
+  echo "  Contains ${FILE_COUNT} files"
+else
+  echo "WARNING: Frontend static files directory is empty or missing" >&2
+  echo "  Expected: /var/www/skinx/frontend-static/" >&2
+  echo "  This is expected on first deployment before deploy-prod.sh completes" >&2
+fi
+
+# Check Nginx serving static frontend
+check_service "Nginx Frontend (Static)" "http://127.0.0.1/" || exit 1
 
 # ============================================================================
 # Public Health Checks (Optional - Warn Only)

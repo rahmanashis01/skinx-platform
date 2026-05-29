@@ -231,7 +231,27 @@ async def run_analysis(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Inference failed: {e}")
 
-    # Determine risk level
+    # Check if validation failed - return rejection response early
+    if not prediction["validator_passed"]:
+        print("⚠ Image validation failed - returning rejection response")
+        return {
+            "success": False,
+            "rejected": True,
+            "reason": "non_skin_image",
+            "message": "The uploaded image does not appear to contain a valid skin region. Please upload a clear skin/lesion photo.",
+            "prediction": {
+                "class_name": "Invalid image",
+                "confidence": 0,
+                "risk_level": "unknown",
+                "validator": {
+                    "passed": False,
+                    "info": prediction.get("validation_info", {}),
+                },
+                "segmentation": {"available": False},
+            },
+        }
+
+    # Validation passed - proceed with classification and report generation
     class_name = prediction["class_name"]
     if class_name == "Normal":
         risk_level = "low"
@@ -244,7 +264,7 @@ async def run_analysis(
 
     prediction["risk_level"] = risk_level
 
-    # Generate report
+    # Generate report (only if validation passed)
     try:
         report = generate_short_report(prediction, user_context, route_type)
     except Exception as e:
@@ -258,6 +278,7 @@ async def run_analysis(
 
     return {
         "success": True,
+        "rejected": False,
         "route_type": route_type,
         "filename": file.filename,
         "user_context": user_context,

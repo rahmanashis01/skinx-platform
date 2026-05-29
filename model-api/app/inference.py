@@ -8,8 +8,9 @@ from typing import Optional
 
 import numpy as np
 import torch
-from app.model_loader import ModelLoader
 from PIL import Image, ImageOps
+
+from app.model_loader import ModelLoader
 
 
 class InferenceEngine:
@@ -141,26 +142,40 @@ class InferenceEngine:
         except Exception as e:
             raise RuntimeError(f"EfficientNet-B5 inference failed: {e}")
 
-    def validate_skin_image(self, image: Image.Image) -> bool:
+    def validate_skin_image(self, image: Image.Image) -> tuple[bool, dict]:
         """
         Validate that image contains human skin.
 
-        Uses YCrCb color detection + MobileNetV3 semantic check.
+        Uses YCrCb color detection + optional MobileNetV3 semantic check.
+        Returns early rejection if either check fails.
 
         Args:
             image (Image.Image): Input image
 
         Returns:
-            bool: True if image passes validation, False otherwise
+            (is_valid: bool, validation_info: dict): Validation result and details
         """
+        from app.config import Config
+
+        validation_info = {
+            "skin_color_ratio": 0.0,
+            "color_check_passed": False,
+            "mobilenet_check_passed": False,
+            "overall_passed": False,
+        }
+
         try:
+            print("🔍 Running skin/image validation...")
+
             img_rgb = image.convert("RGB")
             img_np = np.array(img_rgb)
 
             if img_np.size == 0:
-                return False
+                print("✗ Image validation failed: Empty image")
+                return False, validation_info
 
-            # YCrCb color detection
+            # Step 1: YCrCb color detection (mandatory)
+            print("  Checking skin color distribution...")
             R = img_np[:, :, 0].astype(float)
             G = img_np[:, :, 1].astype(float)
             B = img_np[:, :, 2].astype(float)
@@ -170,38 +185,74 @@ class InferenceEngine:
             skin_pixels = (Cr >= 133) & (Cr <= 173) & (Cb >= 77) & (Cb <= 127)
             skin_ratio = np.sum(skin_pixels) / skin_pixels.size
 
-            print(f"Skin color ratio: {skin_ratio * 100.0:.2f}%")
+            validation_info["skin_color_ratio"] = skin_ratio
 
-            if skin_ratio < 0.12:
-                print("⚠ Low skin pixel ratio")
-                return False
+            print(f"  Skin color ratio: {skin_ratio * 100.0:.2f}%")
+            print(f"  Min required ratio: {Config.MIN_SKIN_COLOR_RATIO * 100.0:.2f}%")
 
-            # Optional: MobileNetV3 semantic check
+            if skin_ratio < Config.MIN_SKIN_COLOR_RATIO:
+                print(
+                    f"✗ Color check FAILED: Insufficient skin pixels ({skin_ratio * 100.0:.2f}% < {Config.MIN_SKIN_COLOR_RATIO * 100.0:.2f}%)"
+                )
+                return False, validation_info
+
+            validation_info["color_check_passed"] = True
+            print(f"✓ Color check PASSED")
+
+            # Step 2: MobileNetV3 semantic check (optional but recommended)
             if (
                 self.loader.validator_model is not None
                 and self.loader.validator_preprocess is not None
             ):
-                input_tensor = (
-                    self.loader.validator_preprocess(img_rgb)
-                    .unsqueeze(0)
-                    .to(self.device)
-                )
-                with torch.no_grad():
-                    logits = self.loader.validator_model(input_tensor)
-                    probs = torch.nn.functional.softmax(logits, dim=1)[0]
-                    # Just check if model runs; any top-5 result passes
-                    top5_prob, _ = torch.topk(probs, 5)
+                print("  Running MobileNetV3 validation...")
+                try:
+                    input_tensor = (
+                        self.loader.validator_preprocess(img_rgb)
+                        .unsqueeze(0)
+                        .to(self.device)
+                    )
+                    with torch.no_grad():
+                        logits = self.loader.validator_model(input_tensor)
+                        probs = torch.nn.functional.softmax(logits, dim=1)[0]
+                        # MobileNetV3 is a general classifier; we use it as a sanity check.
+                        # High confidence in any class suggests a valid object image.
+                        max_prob, _ = probs.max(0)
+                        max_prob_val = float(max_prob.item())
 
-                print("✓ MobileNetV3 validation passed")
-                return True
+                        print(
+                            f"  MobileNetV3 max confidence: {max_prob_val * 100.0:.2f}%"
+                        )
+                        print(
+                            f"  Validation threshold: {Config.SKIN_VALIDATION_THRESHOLD * 100.0:.2f}%"
+                        )
 
-            # If validator not loaded, pass on color detection alone
-            print("✓ Image passed skin color detection")
-            return True
+                        if max_prob_val >= Config.SKIN_VALIDATION_THRESHOLD:
+                            validation_info["mobilenet_check_passed"] = True
+                            print(f"✓ MobileNetV3 validation PASSED")
+                        else:
+                            print(
+                                f"✗ MobileNetV3 validation FAILED: Low confidence ({max_prob_val * 100.0:.2f}% < {Config.SKIN_VALIDATION_THRESHOLD * 100.0:.2f}%)"
+                            )
+                            return False, validation_info
+
+                except Exception as e:
+                    print(
+                        f"⚠ MobileNetV3 error: {e}. Continuing with color check result."
+                    )
+                    # If MobileNetV3 fails, we already passed color check, so continue
+                    validation_info["mobilenet_check_passed"] = True
+            else:
+                print("  MobileNetV3 validator not available. Using color check only.")
+                validation_info["mobilenet_check_passed"] = True
+
+            # Both checks passed (or color passed and validator unavailable)
+            validation_info["overall_passed"] = True
+            print("✓ Image validation PASSED")
+            return True, validation_info
 
         except Exception as e:
-            print(f"⚠ Validation error: {e}. Passing image anyway.")
-            return True
+            print(f"✗ Validation error: {e}")
+            return False, validation_info
 
     def run_inference(self, image: Image.Image) -> dict:
         """

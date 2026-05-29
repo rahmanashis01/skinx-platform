@@ -23,6 +23,10 @@ class Config:
         "MOBILENET_MODEL_PATH", "/models/mobilenet_v3_small-047dcff4.pth"
     )
 
+    # Image Validation Thresholds - Configurable for production tuning
+    SKIN_VALIDATION_THRESHOLD = float(os.getenv("SKIN_VALIDATION_THRESHOLD", "0.70"))
+    MIN_SKIN_COLOR_RATIO = float(os.getenv("MIN_SKIN_COLOR_RATIO", "0.15"))
+
     # LLM Configuration - OpenRouter or other vendor APIs
     LLM_PROVIDER = os.getenv("LLM_PROVIDER", "none")
     LLM_API_KEY = os.getenv("LLM_API_KEY", "")

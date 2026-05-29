@@ -1601,6 +1601,56 @@ export default function ScanPage() {
                         `API error: ${uploadResponse.statusText}`,
                       );
                     }
+
+                    const analysisResult = await uploadResponse.json();
+
+                    // Save full backend response to localStorage
+                    localStorage.setItem(
+                      "latestAnalysisResult",
+                      JSON.stringify(analysisResult),
+                    );
+
+                    // Add to global scan history
+                    const scanHistory = JSON.parse(
+                      localStorage.getItem("scanHistory") || "[]",
+                    );
+                    const imagesToUpload =
+                      allCroppedPhotos.length > 0
+                        ? allCroppedPhotos
+                        : [croppedPhoto];
+                    const newScan = {
+                      timestamp: new Date().toISOString(),
+                      condition:
+                        analysisResult.analysis?.condition || "Unknown",
+                      confidence: analysisResult.analysis?.confidence || 0,
+                      severity: analysisResult.analysis?.severity || "unknown",
+                      riskLevel: analysisResult.analysis?.riskLevel || "low",
+                      bodyArea: analysisResult.analysis?.bodyArea || "Unknown",
+                      photos: imagesToUpload.slice(0, maxImages),
+                      photoCount: maxImages,
+                    };
+                    scanHistory.push(newScan);
+                    localStorage.setItem(
+                      "scanHistory",
+                      JSON.stringify(scanHistory),
+                    );
+
+                    // Also add to session-specific history if in a session
+                    if (currentSession) {
+                      const sessionDataParsed = JSON.parse(currentSession);
+                      const sessionKey = `session_${sessionDataParsed.id}_scans`;
+                      const sessionScans = JSON.parse(
+                        localStorage.getItem(sessionKey) || "[]",
+                      );
+                      sessionScans.push(newScan);
+                      localStorage.setItem(
+                        sessionKey,
+                        JSON.stringify(sessionScans),
+                      );
+                    }
+
+                    // Navigate to result page
+                    navigate("/result-ready");
                   } catch (fetchError) {
                     clearTimeout(timeoutId);
                     if (fetchError.name === "AbortError") {
@@ -1610,55 +1660,6 @@ export default function ScanPage() {
                     }
                     throw fetchError;
                   }
-
-                  const analysisResult = await uploadResponse.json();
-
-                  // Save full backend response to localStorage
-                  localStorage.setItem(
-                    "latestAnalysisResult",
-                    JSON.stringify(analysisResult),
-                  );
-
-                  // Add to global scan history
-                  const scanHistory = JSON.parse(
-                    localStorage.getItem("scanHistory") || "[]",
-                  );
-                  const imagesToUpload =
-                    allCroppedPhotos.length > 0
-                      ? allCroppedPhotos
-                      : [croppedPhoto];
-                  const newScan = {
-                    timestamp: new Date().toISOString(),
-                    condition: analysisResult.analysis?.condition || "Unknown",
-                    confidence: analysisResult.analysis?.confidence || 0,
-                    severity: analysisResult.analysis?.severity || "unknown",
-                    riskLevel: analysisResult.analysis?.riskLevel || "low",
-                    bodyArea: analysisResult.analysis?.bodyArea || "Unknown",
-                    photos: imagesToUpload.slice(0, maxImages),
-                    photoCount: maxImages,
-                  };
-                  scanHistory.push(newScan);
-                  localStorage.setItem(
-                    "scanHistory",
-                    JSON.stringify(scanHistory),
-                  );
-
-                  // Also add to session-specific history if in a session
-                  if (currentSession) {
-                    const sessionDataParsed = JSON.parse(currentSession);
-                    const sessionKey = `session_${sessionDataParsed.id}_scans`;
-                    const sessionScans = JSON.parse(
-                      localStorage.getItem(sessionKey) || "[]",
-                    );
-                    sessionScans.push(newScan);
-                    localStorage.setItem(
-                      sessionKey,
-                      JSON.stringify(sessionScans),
-                    );
-                  }
-
-                  // Navigate to result page
-                  navigate("/result-ready");
                 } catch (error) {
                   console.error("Scan error:", error);
                   alert(`Failed to analyze photo: ${error.message}`);

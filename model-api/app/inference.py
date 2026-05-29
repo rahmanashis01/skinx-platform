@@ -46,6 +46,7 @@ class InferenceEngine:
             return self._fallback_crop(img_rgb), False
 
         try:
+            print("Running MedSAM segmentation...")
             image_np = np.array(img_rgb)
             h, w, _ = image_np.shape
 
@@ -111,7 +112,11 @@ class InferenceEngine:
 
     def classify_lesion(self, cropped_image: Image.Image) -> dict:
         """
-        Classify lesion using EfficientNet-B5.
+        Classify lesion using EfficientNet-B5 (/models/incremental_b5.pt).
+
+        IMPORTANT: This is the real lesion classifier (incremental_b5.pt).
+        Every accepted valid skin image MUST be classified through this model
+        before report generation.
 
         Args:
             cropped_image (Image.Image): Preprocessed lesion image
@@ -126,7 +131,9 @@ class InferenceEngine:
             raise RuntimeError("EfficientNet-B5 model not loaded")
 
         try:
-            print("Running EfficientNet-B5 classification...")
+            print(
+                "Running EfficientNet-B5 classification (/models/incremental_b5.pt)..."
+            )
             transform = self.loader.get_efficientnet_transform()
             input_tensor = transform(cropped_image).unsqueeze(0).to(self.device)
 
@@ -149,10 +156,21 @@ class InferenceEngine:
 
     def validate_skin_image(self, image: Image.Image) -> tuple[bool, dict]:
         """
-        Validate that image contains human skin.
+        Validate that image contains human skin using safer two-tier logic.
 
-        Uses YCrCb color detection + optional MobileNetV3 semantic check.
-        Returns early rejection if either check fails.
+        TIER 1: Hard reject (always reject)
+        - If skin_color_ratio < MIN_SKIN_COLOR_RATIO_HARD_REJECT (8%)
+          → Obvious non-skin image (text, objects, blanks, etc.)
+
+        TIER 2: Borderline zone (conditional accept based on MobileNetV3)
+        - If skin_color_ratio is between 8% and 15%:
+          - If MobileNetV3 confidence >= SKIN_VALIDATION_THRESHOLD (30%): ACCEPT (warning logged)
+          - If MobileNetV3 confidence < SKIN_VALIDATION_THRESHOLD (30%): REJECT
+
+        TIER 3: Good zone (always accept)
+        - If skin_color_ratio >= MIN_SKIN_COLOR_RATIO_BORDERLINE (15%)
+          → Real skin/lesion image, proceed to MedSAM + EfficientNet
+          → MobileNetV3 low confidence is just a warning, NOT a rejection reason
 
         Args:
             image (Image.Image): Input image
@@ -166,24 +184,27 @@ class InferenceEngine:
             "passed": False,
             "reason": None,
             "skin_color_ratio": 0.0,
-            "color_check_passed": False,
-            "mobilenet_check_passed": False,
             "mobilenet_confidence": None,
+            "validation_tier": None,
+            "decision": None,
         }
 
         try:
-            print("🔍 Running skin/image validation...")
+            print(
+                "🔍 Running skin/image validation (two-tier: hard-reject + borderline)..."
+            )
 
             img_rgb = image.convert("RGB")
             img_np = np.array(img_rgb)
 
             if img_np.size == 0:
-                print("✗ Image validation failed: Empty image")
+                print("✗ Image validation FAILED: Empty image")
                 validation_info["reason"] = "empty_image"
+                validation_info["decision"] = "rejected"
                 return False, validation_info
 
-            # Step 1: YCrCb color detection (mandatory)
-            print("  Checking skin color distribution...")
+            # Step 1: YCrCb color detection (mandatory first gate)
+            print("  Checking skin color distribution (YCrCb)...")
             R = img_np[:, :, 0].astype(float)
             G = img_np[:, :, 1].astype(float)
             B = img_np[:, :, 2].astype(float)
@@ -196,24 +217,86 @@ class InferenceEngine:
             validation_info["skin_color_ratio"] = float(skin_ratio)
 
             print(f"  Skin color ratio: {skin_ratio * 100.0:.2f}%")
-            print(f"  Min required ratio: {Config.MIN_SKIN_COLOR_RATIO * 100.0:.2f}%")
+            print(
+                f"  Hard reject threshold: {Config.MIN_SKIN_COLOR_RATIO_HARD_REJECT * 100.0:.2f}%"
+            )
+            print(
+                f"  Borderline threshold: {Config.MIN_SKIN_COLOR_RATIO_BORDERLINE * 100.0:.2f}%"
+            )
 
-            if skin_ratio < Config.MIN_SKIN_COLOR_RATIO:
+            # TIER 1: Hard reject - obvious non-skin images
+            if skin_ratio < Config.MIN_SKIN_COLOR_RATIO_HARD_REJECT:
                 print(
-                    f"✗ Color check FAILED: Insufficient skin pixels ({skin_ratio * 100.0:.2f}% < {Config.MIN_SKIN_COLOR_RATIO * 100.0:.2f}%)"
+                    f"✗ TIER 1 HARD REJECT: Skin color ratio {skin_ratio * 100.0:.2f}% < hard reject threshold {Config.MIN_SKIN_COLOR_RATIO_HARD_REJECT * 100.0:.2f}%"
                 )
-                validation_info["reason"] = "insufficient_skin_color"
+                print("  Image is obvious non-skin (text, object, blank, etc.)")
+                validation_info["reason"] = "obvious_non_skin"
+                validation_info["validation_tier"] = "tier_1_hard_reject"
+                validation_info["decision"] = "rejected"
                 return False, validation_info
 
-            validation_info["color_check_passed"] = True
-            print(f"✓ Color check PASSED")
+            # TIER 3: Good zone - sufficient skin color (always accept)
+            if skin_ratio >= Config.MIN_SKIN_COLOR_RATIO_BORDERLINE:
+                print(
+                    f"✓ TIER 3 GOOD ZONE: Skin color ratio {skin_ratio * 100.0:.2f}% >= borderline {Config.MIN_SKIN_COLOR_RATIO_BORDERLINE * 100.0:.2f}%"
+                )
+                print(
+                    "  Real skin/lesion image detected. Proceeding to MedSAM + EfficientNet."
+                )
+                validation_info["validation_tier"] = "tier_3_good_zone"
+                validation_info["decision"] = "accepted"
+                validation_info["passed"] = True
 
-            # Step 2: MobileNetV3 semantic check (optional but recommended)
+                # Check MobileNetV3 anyway (log as warning if low, but don't reject)
+                if (
+                    self.loader.validator_model is not None
+                    and self.loader.validator_preprocess is not None
+                ):
+                    try:
+                        print(
+                            "  Running MobileNetV3 check (warning only, not rejection gate)..."
+                        )
+                        input_tensor = (
+                            self.loader.validator_preprocess(img_rgb)
+                            .unsqueeze(0)
+                            .to(self.device)
+                        )
+                        with torch.no_grad():
+                            logits = self.loader.validator_model(input_tensor)
+                            probs = torch.nn.functional.softmax(logits, dim=1)[0]
+                            max_prob, _ = probs.max(0)
+                            max_prob_val = float(max_prob.item())
+
+                        validation_info["mobilenet_confidence"] = max_prob_val
+
+                        print(f"  MobileNetV3 confidence: {max_prob_val * 100.0:.2f}%")
+
+                        if max_prob_val < Config.SKIN_VALIDATION_THRESHOLD:
+                            print(
+                                f"⚠ MobileNetV3 low confidence warning ({max_prob_val * 100.0:.2f}% < {Config.SKIN_VALIDATION_THRESHOLD * 100.0:.2f}%), "
+                                f"but continuing because skin color ratio {skin_ratio * 100.0:.2f}% is sufficient."
+                            )
+                        else:
+                            print(
+                                f"✓ MobileNetV3 confidence {max_prob_val * 100.0:.2f}% >= threshold {Config.SKIN_VALIDATION_THRESHOLD * 100.0:.2f}%"
+                            )
+
+                    except Exception as e:
+                        print(f"⚠ MobileNetV3 warning check failed: {e}, continuing")
+
+                print("✓ Image validation PASSED (TIER 3 GOOD ZONE)")
+                return True, validation_info
+
+            # TIER 2: Borderline zone - conditional accept based on MobileNetV3
+            print(
+                f"⚠ TIER 2 BORDERLINE ZONE: Skin color ratio {skin_ratio * 100.0:.2f}% is between {Config.MIN_SKIN_COLOR_RATIO_HARD_REJECT * 100.0:.2f}% and {Config.MIN_SKIN_COLOR_RATIO_BORDERLINE * 100.0:.2f}%"
+            )
+            print("  Running MobileNetV3 check to decide acceptance...")
+
             if (
                 self.loader.validator_model is not None
                 and self.loader.validator_preprocess is not None
             ):
-                print("  Running MobileNetV3 validation...")
                 try:
                     input_tensor = (
                         self.loader.validator_preprocess(img_rgb)
@@ -223,48 +306,63 @@ class InferenceEngine:
                     with torch.no_grad():
                         logits = self.loader.validator_model(input_tensor)
                         probs = torch.nn.functional.softmax(logits, dim=1)[0]
-                        # MobileNetV3 is a general classifier; we use it as a sanity check.
-                        # High confidence in any class suggests a valid object image.
                         max_prob, _ = probs.max(0)
                         max_prob_val = float(max_prob.item())
 
-                        validation_info["mobilenet_confidence"] = max_prob_val
+                    validation_info["mobilenet_confidence"] = max_prob_val
 
-                        print(
-                            f"  MobileNetV3 max confidence: {max_prob_val * 100.0:.2f}%"
-                        )
-                        print(
-                            f"  Validation threshold: {Config.SKIN_VALIDATION_THRESHOLD * 100.0:.2f}%"
-                        )
+                    print(f"  MobileNetV3 confidence: {max_prob_val * 100.0:.2f}%")
+                    print(
+                        f"  Borderline threshold: {Config.SKIN_VALIDATION_THRESHOLD * 100.0:.2f}%"
+                    )
 
-                        if max_prob_val >= Config.SKIN_VALIDATION_THRESHOLD:
-                            validation_info["mobilenet_check_passed"] = True
-                            print(f"✓ MobileNetV3 validation PASSED")
-                        else:
-                            print(
-                                f"✗ MobileNetV3 validation FAILED: Low confidence ({max_prob_val * 100.0:.2f}% < {Config.SKIN_VALIDATION_THRESHOLD * 100.0:.2f}%)"
-                            )
-                            validation_info["reason"] = "low_mobilenet_confidence"
-                            return False, validation_info
+                    if max_prob_val >= Config.SKIN_VALIDATION_THRESHOLD:
+                        print(
+                            f"✓ TIER 2 BORDERLINE ACCEPT: MobileNetV3 {max_prob_val * 100.0:.2f}% >= {Config.SKIN_VALIDATION_THRESHOLD * 100.0:.2f}%"
+                        )
+                        validation_info["validation_tier"] = "tier_2_borderline_accept"
+                        validation_info["decision"] = "accepted"
+                        validation_info["passed"] = True
+                        print("✓ Image validation PASSED (TIER 2 BORDERLINE)")
+                        return True, validation_info
+                    else:
+                        print(
+                            f"✗ TIER 2 BORDERLINE REJECT: MobileNetV3 {max_prob_val * 100.0:.2f}% < {Config.SKIN_VALIDATION_THRESHOLD * 100.0:.2f}%"
+                        )
+                        validation_info["reason"] = "borderline_low_mobilenet"
+                        validation_info["validation_tier"] = "tier_2_borderline_reject"
+                        validation_info["decision"] = "rejected"
+                        print("✗ Image validation FAILED (TIER 2 BORDERLINE)")
+                        return False, validation_info
 
                 except Exception as e:
+                    print(f"⚠ MobileNetV3 error in borderline zone: {e}")
                     print(
-                        f"⚠ MobileNetV3 error: {e}. Continuing with color check result."
+                        "  Continuing with color check result (ACCEPT due to insufficient evidence)"
                     )
-                    # If MobileNetV3 fails, we already passed color check, so continue
-                    validation_info["mobilenet_check_passed"] = True
+                    validation_info["validation_tier"] = (
+                        "tier_2_borderline_mobilenet_error"
+                    )
+                    validation_info["decision"] = "accepted"
+                    validation_info["passed"] = True
+                    print(
+                        "✓ Image validation PASSED (TIER 2 BORDERLINE - MobileNetV3 error recovery)"
+                    )
+                    return True, validation_info
             else:
-                print("  MobileNetV3 validator not available. Using color check only.")
-                validation_info["mobilenet_check_passed"] = True
-
-            # Both checks passed (or color passed and validator unavailable)
-            validation_info["passed"] = True
-            print("✓ Image validation PASSED")
-            return True, validation_info
+                print(
+                    "  MobileNetV3 not available. Accepting based on color check only."
+                )
+                validation_info["validation_tier"] = "tier_2_borderline_no_mobilenet"
+                validation_info["decision"] = "accepted"
+                validation_info["passed"] = True
+                print("✓ Image validation PASSED (TIER 2 BORDERLINE - no MobileNetV3)")
+                return True, validation_info
 
         except Exception as e:
             print(f"✗ Validation error: {e}")
             validation_info["reason"] = "validation_error"
+            validation_info["decision"] = "rejected"
             return False, validation_info
 
     def run_inference(self, image: Image.Image) -> dict:
@@ -274,11 +372,11 @@ class InferenceEngine:
         CRITICAL SAFETY: If validation fails, immediately return rejection.
         Do NOT run MedSAM, EfficientNet, or OpenRouter on invalid images.
 
-        Pipeline order:
+        For valid images:
         1. Validate image (GATE - must pass to proceed)
         2. Segment lesion (MedSAM)
-        3. Classify lesion (EfficientNet-B5)
-        4. Return structured result
+        3. Classify lesion (EfficientNet-B5 /models/incremental_b5.pt)
+        4. Return structured result with classification
 
         Args:
             image (Image.Image): Input image
@@ -295,10 +393,12 @@ class InferenceEngine:
 
         # If validation fails, reject immediately - do NOT proceed to other models
         if not is_valid:
-            print("\n⚠ VALIDATION FAILED - REJECTING IMAGE")
-            print("  MedSAM: SKIPPED (validation failed)")
-            print("  EfficientNet: SKIPPED (validation failed)")
-            print("  OpenRouter: SKIPPED (validation failed)")
+            print("\n🛑 VALIDATION GATE FAILED - REJECTING IMAGE")
+            print("  MedSAM segmentation: SKIPPED (image rejected at validation)")
+            print(
+                "  EfficientNet-B5 classification: SKIPPED (image rejected at validation)"
+            )
+            print("  OpenRouter report: SKIPPED (image rejected at validation)")
             print("=" * 70 + "\n")
             return {
                 "success": False,
@@ -311,23 +411,24 @@ class InferenceEngine:
             }
 
         # Validation PASSED - proceed to segmentation and classification
-        print("\n✓ VALIDATION PASSED - PROCEEDING TO SEGMENTATION AND CLASSIFICATION")
+        print("\n✅ VALIDATION GATE PASSED - PROCEEDING TO MEDSAM + EFFICIENTNET-B5")
 
-        # Step 2: Segment
+        # Step 2: Segment with MedSAM
         try:
             cropped, seg_success = self.segment_lesion(image)
         except Exception as e:
-            print(f"⚠ Segmentation error: {e}")
+            print(f"⚠ MedSAM segmentation error: {e}")
             cropped = self._fallback_crop(image.convert("RGB"))
             seg_success = False
 
-        # Step 3: Classify (only if validation passed)
+        # Step 3: Classify with EfficientNet-B5 (/models/incremental_b5.pt)
+        # CRITICAL: Every accepted valid skin image MUST be classified through this
         try:
             classification = self.classify_lesion(cropped)
             class_name = classification["class_name"]
             confidence = classification["confidence"]
         except Exception as e:
-            print(f"✗ Classification failed: {e}")
+            print(f"✗ EfficientNet-B5 classification failed: {e}")
             raise
 
         print("=" * 70 + "\n")

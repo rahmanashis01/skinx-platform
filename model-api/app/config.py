@@ -23,9 +23,30 @@ class Config:
         "MOBILENET_MODEL_PATH", "/models/mobilenet_v3_small-047dcff4.pth"
     )
 
-    # Image Validation Thresholds - Configurable for production tuning
-    SKIN_VALIDATION_THRESHOLD = float(os.getenv("SKIN_VALIDATION_THRESHOLD", "0.70"))
-    MIN_SKIN_COLOR_RATIO = float(os.getenv("MIN_SKIN_COLOR_RATIO", "0.15"))
+    # Image Validation Thresholds - Safer two-tier validation
+    # ========================================================================
+    # TIER 1: Hard reject threshold
+    # If skin_color_ratio < MIN_SKIN_COLOR_RATIO_HARD_REJECT, always reject
+    # (obvious non-skin images: text, objects, etc.)
+    MIN_SKIN_COLOR_RATIO_HARD_REJECT = float(
+        os.getenv("MIN_SKIN_COLOR_RATIO_HARD_REJECT", "0.08")
+    )
+
+    # TIER 2: Borderline threshold
+    # If skin_color_ratio is between BORDERLINE and HARD_REJECT:
+    # - If MobileNetV3 confidence < SKIN_VALIDATION_THRESHOLD: reject
+    # - If MobileNetV3 confidence >= SKIN_VALIDATION_THRESHOLD: accept
+    # (allows real skin images with low MobileNetV3 confidence to proceed)
+    MIN_SKIN_COLOR_RATIO_BORDERLINE = float(
+        os.getenv("MIN_SKIN_COLOR_RATIO_BORDERLINE", "0.15")
+    )
+
+    # MobileNetV3 validation threshold (only used in borderline zone)
+    # If skin_color_ratio >= BORDERLINE, MobileNetV3 is NOT a hard gate
+    # If skin_color_ratio is between BORDERLINE and HARD_REJECT:
+    #   - MobileNetV3 confidence < SKIN_VALIDATION_THRESHOLD: reject
+    #   - MobileNetV3 confidence >= SKIN_VALIDATION_THRESHOLD: accept (with warning)
+    SKIN_VALIDATION_THRESHOLD = float(os.getenv("SKIN_VALIDATION_THRESHOLD", "0.30"))
 
     # LLM Configuration - OpenRouter or other vendor APIs
     LLM_PROVIDER = os.getenv("LLM_PROVIDER", "none")
@@ -78,5 +99,8 @@ class Config:
             "class_csv_configured": bool(cls.CLASS_CSV_PATH),
             "llm_provider": cls.LLM_PROVIDER if cls.LLM_PROVIDER != "none" else None,
             "llm_api_key_set": bool(cls.LLM_API_KEY),
+            "validation_hard_reject_threshold": cls.MIN_SKIN_COLOR_RATIO_HARD_REJECT,
+            "validation_borderline_threshold": cls.MIN_SKIN_COLOR_RATIO_BORDERLINE,
+            "mobilenet_confidence_threshold": cls.SKIN_VALIDATION_THRESHOLD,
             "port": cls.PORT,
         }

@@ -206,9 +206,16 @@ async def run_analysis(
     """
     Run full inference pipeline.
 
-    CRITICAL: Validation gate is strictly enforced.
-    If validation fails, return rejection response immediately.
-    Do NOT run MedSAM, EfficientNet, or OpenRouter on invalid images.
+    CRITICAL: Two-tier validation gate strictly enforced.
+    If image fails validation (Tier 1 hard reject or Tier 2 borderline),
+    return rejection response immediately.
+    Do NOT run MedSAM, EfficientNet-B5, or OpenRouter on invalid images.
+
+    For valid images:
+    1. Validate (two-tier gate)
+    2. Run MedSAM segmentation
+    3. Run EfficientNet-B5 classification (/models/incremental_b5.pt)
+    4. Generate OpenRouter/fallback report
 
     Args:
         file: Uploaded image file
@@ -217,7 +224,7 @@ async def run_analysis(
         telegram_context: Optional telegram metadata
 
     Returns:
-        dict: Analysis result or rejection response
+        dict: Analysis result (success) or rejection response (failed validation)
     """
     # Validate file
     if not file.filename:
@@ -235,11 +242,13 @@ async def run_analysis(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Inference failed: {e}")
 
-    # CRITICAL: Check if image was rejected (validation failed)
+    # Check if image was rejected at validation gate
+    # Do NOT call OpenRouter, return clear rejection response
     if prediction.get("rejected", False) or not prediction.get(
         "validator_passed", False
     ):
-        print("🛑 Image rejected - returning rejection response")
+        print("🛑 IMAGE REJECTED AT VALIDATION GATE")
+        print("   NOT calling OpenRouter (image rejected before classification)")
 
         validation_info = prediction.get("validation_info", {})
         reason = validation_info.get("reason", "unknown")
@@ -247,17 +256,19 @@ async def run_analysis(
         return {
             "success": False,
             "rejected": True,
-            "reason": reason,
+            "reason": "non_skin_image",
             "message": "The uploaded image does not appear to contain a valid skin region. Please upload a clear skin/lesion photo.",
             "prediction": {
                 "class_name": "Invalid image",
                 "confidence": 0,
-                "risk_level": "unknown",
+                "risk_level": "invalid",
                 "validator": {
                     "passed": False,
                     "reason": reason,
                     "skin_color_ratio": validation_info.get("skin_color_ratio"),
                     "mobilenet_confidence": validation_info.get("mobilenet_confidence"),
+                    "validation_tier": validation_info.get("validation_tier"),
+                    "validation_decision": validation_info.get("decision"),
                 },
                 "segmentation": {
                     "available": False,
@@ -265,13 +276,18 @@ async def run_analysis(
             },
         }
 
-    # VALIDATION PASSED - proceed to classification and report generation
-    print("✓ Image accepted - proceeding to classification and report generation")
+    # VALIDATION PASSED - Image was accepted by two-tier validation
+    # Proceed to report generation
+    print("\n✅ IMAGE ACCEPTED AT VALIDATION GATE")
+    print("   MedSAM segmentation: COMPLETED")
+    print("   EfficientNet-B5 classification: COMPLETED")
+    print("   Generating report...")
 
     class_name = prediction.get("class_name", "Unknown")
     confidence = prediction.get("confidence", 0.0)
+    segmentation_available = prediction.get("segmentation_available", False)
 
-    # Determine risk level
+    # Determine risk level based on class
     if class_name.lower() == "normal":
         risk_level = "low"
     elif class_name in ["Melanoma", "Melanoma metastatic"]:
@@ -281,7 +297,7 @@ async def run_analysis(
     else:
         risk_level = "medium"
 
-    # Generate report (only if validation passed)
+    # Generate report (only after validation AND classification passed)
     try:
         report = generate_short_report(
             {
@@ -289,13 +305,12 @@ async def run_analysis(
                 "confidence": confidence,
                 "risk_level": risk_level,
                 "validator_passed": True,
-                "segmentation_available": prediction.get(
-                    "segmentation_available", False
-                ),
+                "segmentation_available": segmentation_available,
             },
             user_context,
             route_type,
         )
+        print("✅ Report generated successfully")
     except Exception as e:
         print(f"⚠ Report generation error: {e}")
         report = {
@@ -317,11 +332,11 @@ async def run_analysis(
             "confidence": round(confidence, 2),
             "risk_level": risk_level,
             "validator": {
-                "passed": True,
+                "passed": prediction.get("validator_passed", True),
                 "reason": "validation_passed",
             },
             "segmentation": {
-                "available": prediction.get("segmentation_available", False),
+                "available": segmentation_available,
             },
         },
         "report": report,

@@ -64,6 +64,38 @@ services:
       start_period: 10s
 
   # ───────────────────────────────────────────────────────────────────────────
+  # PostgreSQL Database - User & Auth Storage
+  # ───────────────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: skinx-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-skinx}
+      POSTGRES_USER: ${POSTGRES_USER:-skinx}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_INITDB_ARGS: "-c default_text_search_config=english"
+
+    volumes:
+      # Persistent database volume
+      - postgres_data:/var/lib/postgresql/data
+
+    ports:
+      # Expose only to local backend (not public)
+      - "127.0.0.1:5432:5432"
+
+    networks:
+      - skinx-network
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-skinx} -d ${POSTGRES_DB:-skinx}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ───────────────────────────────────────────────────────────────────────────
   # Backend - Node.js/Express API Server
   # ───────────────────────────────────────────────────────────────────────────
   backend:
@@ -92,6 +124,13 @@ services:
       MODEL_API_URL: http://model-api:8080
       RAG_API_URL: http://rag-backend:8000
       UPLOAD_DIR: /app/uploads
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-skinx}
+      POSTGRES_USER: ${POSTGRES_USER:-skinx}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-skinx}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-skinx}
+      USE_DATABASE: "true"
 
     volumes:
       # Persistent storage for uploaded images
@@ -100,8 +139,12 @@ services:
       - /var/www/skinx/logs/backend:/app/logs
 
     depends_on:
-      - model-api
-      - rag-backend
+      postgres:
+        condition: service_healthy
+      model-api:
+        condition: service_started
+      rag-backend:
+        condition: service_started
 
     networks:
       - skinx-network
@@ -271,6 +314,17 @@ networks:
   skinx-network:
     driver: bridge
     name: skinx-network
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Volumes
+# ═══════════════════════════════════════════════════════════════════════════
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/www/skinx/data/postgres
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Production Notes

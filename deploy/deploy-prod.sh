@@ -17,6 +17,17 @@ if [[ -n "${PROD_DOMAIN:-}" ]]; then
   export PROD_DOMAIN
 fi
 
+# ============================================================================
+# Create required data directories (persist across deploys)
+# ============================================================================
+echo "Creating required data directories..."
+mkdir -p /var/www/skinx/data/postgres
+mkdir -p /var/www/skinx/data/rag
+mkdir -p /var/www/skinx/data/uploads
+mkdir -p /var/www/skinx/logs/{backend,model-api,rag-backend,telegram-bot}
+echo "✓ Data directories ready"
+echo ""
+
 # Check required secret files exist
 for secret_file in \
   /var/www/skinx/secrets/backend.env \

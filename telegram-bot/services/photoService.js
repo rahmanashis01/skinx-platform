@@ -6,7 +6,8 @@ const axios = require('axios');
 const FormData = require('form-data');
 const logger = require('../utils/logger');
 
-const TMP_DIR = path.resolve(__dirname, '..', 'tmp');
+// Use environment variable or default to /app/tmp for container deployments
+const TMP_DIR = process.env.TMP_DIR || '/app/tmp';
 
 /**
  * Returns the SkinX backend base URL (trailing slash stripped).
@@ -48,16 +49,31 @@ const ERROR_MESSAGES = {
 /**
  * Download a file from a URL and save it locally.
  *
+ * Ensures the destination directory exists before writing.
+ * Waits for the write stream to finish before resolving.
+ *
  * @param {string} fileUrl - The HTTPS URL to download from
  * @param {string} destPath - Absolute path to save the file
  */
 async function downloadFile(fileUrl, destPath) {
+  // Ensure destination directory exists
+  const destDir = path.dirname(destPath);
+  try {
+    fs.mkdirSync(destDir, { recursive: true });
+  } catch (err) {
+    logger.error(`[downloadFile] Failed to create directory ${destDir}: ${err.message}`);
+    throw err;
+  }
+
   const response = await axios.get(fileUrl, { responseType: 'stream', timeout: 30000 });
   const writer = fs.createWriteStream(destPath);
   response.data.pipe(writer);
 
   return new Promise((resolve, reject) => {
-    writer.on('finish', resolve);
+    writer.on('finish', () => {
+      logger.debug(`[downloadFile] write stream finished for ${destPath}`);
+      resolve();
+    });
     writer.on('error', reject);
   });
 }

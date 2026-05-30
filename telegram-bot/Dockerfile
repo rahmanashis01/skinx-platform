@@ -16,8 +16,8 @@ RUN npm ci --omit=dev
 # Copy source code
 COPY . .
 
-# Create logs directory
-RUN mkdir -p /app/logs && chmod 755 /app/logs
+# Create logs and temp directories
+RUN mkdir -p /app/logs /app/tmp && chmod 755 /app/logs /app/tmp
 
 # Set production environment
 ENV NODE_ENV=production

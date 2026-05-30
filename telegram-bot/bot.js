@@ -2,6 +2,7 @@
 
 require("dotenv").config();
 
+const fs = require("fs");
 const path = require("path");
 const express = require("express");
 const TelegramBot = require("node-telegram-bot-api");
@@ -13,6 +14,9 @@ const {
   downloadFile,
   cleanupFile,
 } = require("./services/photoService");
+
+// Temp directory for photo downloads (must exist before use)
+const TMP_DIR = process.env.TMP_DIR || "/app/tmp";
 
 // ─── Validate required environment variables ─────────────────────────────────
 const {
@@ -154,18 +158,43 @@ bot.on("photo", async (msg) => {
   // Show typing while we download + analyse
   await bot.sendChatAction(chatId, "typing");
 
-  // Build a temp path
-  const tmpPath = path.resolve(__dirname, "tmp", `${chatId}_${Date.now()}.jpg`);
+  // Ensure TMP_DIR exists before download
+  try {
+    fs.mkdirSync(TMP_DIR, { recursive: true });
+    logger.info(`[photo] tmp dir: ${TMP_DIR}`);
+  } catch (err) {
+    logger.error(`[photo] Failed to create tmp dir: ${err.message}`);
+    await bot.sendMessage(
+      chatId,
+      `⚠️ Server error: cannot prepare upload directory. Please try again later.`,
+    );
+    return;
+  }
+
+  // Build a temp path using /app/tmp
+  const tmpPath = path.join(TMP_DIR, `${chatId}_${Date.now()}.jpg`);
 
   try {
     // 1. Get the Telegram file URL
     const fileLink = await bot.getFileLink(bestPhoto.file_id);
+    logger.info(`[photo] downloading from Telegram...`);
 
     // 2. Download to tmp/
     await downloadFile(fileLink, tmpPath);
-    logger.info(`[photo] downloaded to ${tmpPath}`);
+
+    // Verify file was written successfully
+    if (!fs.existsSync(tmpPath)) {
+      throw new Error(`File was not written to disk: ${tmpPath}`);
+    }
+    const fileStats = fs.statSync(tmpPath);
+    logger.info(`[photo] downloaded to ${tmpPath} (${fileStats.size} bytes)`);
+
+    if (fileStats.size === 0) {
+      throw new Error(`Downloaded file is empty: ${tmpPath}`);
+    }
 
     // 3. Send to SkinX backend
+    logger.info(`[photo] sending to backend for analysis...`);
     await bot.sendChatAction(chatId, "typing");
     const result = await analyzePhoto(tmpPath);
 

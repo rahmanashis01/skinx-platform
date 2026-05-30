@@ -14,6 +14,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import logoImg from "../assets/logo.png";
+import InstallPrompt from "../components/InstallPrompt";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -661,6 +662,7 @@ const DashboardNavbar = ({ user, onLogout, navigate }) => {
                     {user?.email || localStorage.getItem("userEmail") || ""}
                   </p>
                 </div>
+                <InstallPrompt variant="light-menu" />
                 <button
                   onClick={onLogout}
                   className="w-full text-left px-4 py-2.5 text-red-500 text-sm hover:bg-red-50 flex items-center gap-2 transition-colors"

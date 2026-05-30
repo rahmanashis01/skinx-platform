@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { LogOut } from "lucide-react";
+import InstallPrompt from "./InstallPrompt";
 
 const UserProfile = ({ userName, userEmail, onLogout }) => {
   const [showMenu, setShowMenu] = useState(false);
@@ -43,6 +44,8 @@ const UserProfile = ({ userName, userEmail, onLogout }) => {
                 {userEmail || "user@example.com"}
               </p>
             </div>
+
+            <InstallPrompt variant="light-menu" />
 
             {/* Sign Out Button */}
             <button

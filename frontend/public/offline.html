@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#1e3a8a" />
+        <title>SkinX Offline</title>
+        <style>
+            :root {
+                color-scheme: light;
+                font-family:
+                    Inter, ui-sans-serif, system-ui, -apple-system,
+                    BlinkMacSystemFont, "Segoe UI", sans-serif;
+                background: #f8fbff;
+                color: #0c1a54;
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                min-height: 100vh;
+                margin: 0;
+                display: grid;
+                place-items: center;
+                padding: 24px;
+                background:
+                    radial-gradient(
+                        circle at top,
+                        rgba(45, 200, 192, 0.18),
+                        transparent 34rem
+                    ),
+                    #f8fbff;
+            }
+
+            main {
+                width: min(100%, 420px);
+                text-align: center;
+            }
+
+            .logo-wrap {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 144px;
+                height: 96px;
+                margin-bottom: 24px;
+                border-radius: 18px;
+                background: white;
+                box-shadow: 0 20px 60px rgba(30, 58, 138, 0.16);
+                padding: 12px;
+            }
+
+            img {
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+            }
+
+            h1 {
+                margin: 0 0 12px;
+                font-size: 28px;
+                line-height: 1.15;
+                letter-spacing: 0;
+            }
+
+            p {
+                margin: 0 auto 24px;
+                color: #475569;
+                font-size: 16px;
+                line-height: 1.6;
+            }
+
+            button {
+                min-height: 44px;
+                border: 0;
+                border-radius: 8px;
+                padding: 0 18px;
+                background: #1e3a8a;
+                color: white;
+                font: inherit;
+                font-weight: 700;
+                cursor: pointer;
+                box-shadow: 0 10px 28px rgba(30, 58, 138, 0.24);
+            }
+
+            button:focus-visible {
+                outline: 3px solid rgba(45, 200, 192, 0.55);
+                outline-offset: 3px;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <div class="logo-wrap">
+                <img src="/logo.png" alt="SkinX" />
+            </div>
+            <h1>Connection Needed</h1>
+            <p>
+                SkinX needs an internet connection for AI scan, RAG chat, login,
+                and medical guidance.
+            </p>
+            <button type="button" onclick="window.location.reload()">
+                Retry
+            </button>
+        </main>
+    </body>
+</html>

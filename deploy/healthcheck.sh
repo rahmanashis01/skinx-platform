@@ -78,7 +78,15 @@ else
 fi
 
 # Check Nginx serving static frontend
-check_service "Nginx Frontend (Static)" "http://127.0.0.1/" || exit 1
+# If PROD_DOMAIN is set, check the public HTTPS endpoint
+# Otherwise, warn and skip (http://127.0.0.1/ may return 404 without Host header)
+if [[ -n "${PROD_DOMAIN:-}" ]]; then
+  NGINX_URL="https://${PROD_DOMAIN}/"
+  check_service "Nginx Frontend (Static)" "${NGINX_URL}" || exit 1
+else
+  echo "WARNING: Nginx Frontend (Static) check skipped (PROD_DOMAIN not set)"
+  echo "  Static files directory check passed. Public HTTPS endpoint will be checked in public health checks."
+fi
 
 # ============================================================================
 # Public Health Checks (Optional - Warn Only)

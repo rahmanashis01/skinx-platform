@@ -66,3 +66,25 @@ After each successful deployment, unused Docker images and build cache are autom
 
 **To disable cleanup** (if needed for debugging):
 Set `CLEANUP_DOCKER_IMAGES=false` in GitHub Actions environment or as a workflow variable.
+## RAG Backend Persistent Data
+
+The RAG backend requires persistent storage for knowledge base and vector database:
+
+**Data location on VPS:**
+```
+/var/www/skinx/data/rag/
+├── chunks/
+│   └── skinx_chunks.json          (RAG knowledge base)
+├── system_prompt.md               (System prompt)
+└── chroma_db/                     (Vector database - NEVER deleted)
+```
+
+**Deployment behavior:**
+- Chunks and system prompt are copied from deployed code
+- Existing `chroma_db/` is NEVER deleted during deployment
+- If missing, ChromaDB directory is created automatically
+
+**Rebuild ChromaDB if needed:**
+```bash
+docker exec skinx-rag-backend sh -lc 'cd /app && python scripts/ingest_chroma.py'
+```

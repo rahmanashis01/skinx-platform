@@ -415,11 +415,7 @@ ${Object.entries(riskCounts)
         token = localStorage.getItem("token");
       }
 
-      // Get backend URL from environment
-      const backendUrl =
-        import.meta.env.VITE_BACKEND_URL || "http://localhost:5001";
-
-      const response = await fetch(`${backendUrl}/ask`, {
+      const response = await fetch("/api/ask", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

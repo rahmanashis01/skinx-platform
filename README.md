@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./docs/assets/logo.svg" alt="SkinX Logo" width="120" />
+  <img src="./docs/assets/logo.png" alt="SkinX Logo" width="120" />
 </p>
 
 <h1 align="center">SkinX</h1>
@@ -192,7 +192,7 @@ SkinX provides a supportive workflow:
 ## Product Tour
 
 <p align="center">
-  <img src="./docs/assets/homepage.png" alt="SkinX homepage" width="100%" />
+  <img src="./docs/assets/hero-home.png" alt="SkinX homepage" width="100%" />
 </p>
 
 ### 1. Register and Verify
@@ -227,11 +227,11 @@ The same assistant and scan workflow are available from the Telegram bot.
 
 ## Screenshots
 
-> Add real screenshots under `docs/assets/`.
+Product screenshots are stored under `docs/assets/`.
 
 | Homepage | Session Workspace |
 |---|---|
-| ![](./docs/assets/homepage.png) | ![](./docs/assets/session-workspace.png) |
+| ![](./docs/assets/hero-home.png) | ![](./docs/assets/session-workspace.png) |
 
 | Scan Result | Telegram Bot |
 |---|---|

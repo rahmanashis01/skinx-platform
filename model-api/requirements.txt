@@ -1,12 +1,13 @@
-# SkinX Model API - Production Dependencies
+# SkinX Model API - Production Dependencies (CPU-only)
 # Clean dependencies for Linux/Docker deployment
+# NOTE: PyTorch CPU-only wheels installed via Dockerfile with --index-url
 
 # Web Framework
 fastapi==0.115.0
 uvicorn[standard]==0.30.0
 python-multipart==0.0.9
 
-# Deep Learning - Core
+# Deep Learning - Core (CPU-only wheels)
 torch==2.3.1
 torchvision==0.18.1
 

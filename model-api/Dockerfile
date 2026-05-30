@@ -34,8 +34,12 @@ WORKDIR /app
 # Copy requirements first for better layer caching
 COPY requirements.txt .
 
-# Install Python dependencies
+# Install Python dependencies with CPU-only PyTorch wheels
+# Using official PyTorch CPU index to avoid CUDA/NVIDIA dependencies
 RUN pip install --upgrade pip && \
+    pip install --no-cache-dir \
+    torch==2.3.1 torchvision==0.18.1 \
+    --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy application code

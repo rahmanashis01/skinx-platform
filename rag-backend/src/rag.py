@@ -198,7 +198,7 @@ def ask(question: str) -> dict[str, Any]:
                 "sources": [],
             }
 
-        # ── 1. Embed the user question ────────────────────────────────────
+        # ── 1. Embed the user questioning ────────────────────────────────────
         q_embedding = embed_query(question)
 
         # ── 2. Retrieve top-k chunks from ChromaDB ───────────────────────

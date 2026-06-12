@@ -96,11 +96,22 @@ def _check_guardrail(question: str) -> bool:
             temperature=0.0,
             max_tokens=10,
         )
-        verdict = result["content"].strip().upper().split()[0] if result["content"].strip() else ""
-        is_safe = verdict == "SAFE"
-        if not is_safe:
-            print(f"[guardrail] Query refused: {question[:80]!r} → {verdict}")
-        return is_safe
+        raw_verdict = result["content"].strip().upper()
+        first_token = raw_verdict.replace(",", " ").replace(".", " ").split()[0] if raw_verdict else ""
+
+        safe_tokens = {"SAFE", "OK", "OKAY", "ALLOWED", "YES"}
+        unsafe_tokens = {"UNSAFE", "NO", "DENY", "DENIED", "BLOCK", "BLOCKED", "REFUSE", "REFUSED"}
+
+        if first_token in safe_tokens:
+            return True
+
+        if first_token in unsafe_tokens:
+            print(f"[guardrail] Query refused: {question[:80]!r} → {raw_verdict}", flush=True)
+            return False
+
+        # Unexpected verdict — default to safe to avoid blocking legitimate users
+        print(f"[guardrail] Unexpected verdict, defaulting to safe: {question[:80]!r} → {raw_verdict}", flush=True)
+        return True
     except Exception as exc:
         # If guardrail check fails, default to safe so the user isn't blocked
         print(f"[guardrail] Check failed ({exc}), defaulting to safe", flush=True)
@@ -198,7 +209,7 @@ def ask(question: str) -> dict[str, Any]:
                 "sources": [],
             }
 
-        # ── 1. Embed the user questioning ────────────────────────────────────
+        # ── 1. Embed the user question ────────────────────────────────────
         q_embedding = embed_query(question)
 
         # ── 2. Retrieve top-k chunks from ChromaDB ───────────────────────
